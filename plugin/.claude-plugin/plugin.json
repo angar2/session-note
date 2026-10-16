@@ -1,0 +1,26 @@
+{
+  "name": "session-note",
+  "version": "1.0.0",
+  "description": "A mod plugin for Claude Code — gives every session a note where you and the agent jot down what to do or check, and tick it off together.",
+  "author": { "name": "angar2" },
+  "homepage": "https://github.com/angar2/session-note",
+  "repository": "https://github.com/angar2/session-note",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "description": "Language of the notes band and pane",
+      "options": ["English", "한국어"],
+      "default": "English"
+    },
+    "bandBackground": {
+      "type": "string",
+      "title": "Band background",
+      "description": "Background color of the notes band above the prompt",
+      "options": ["None", "Gray", "Olive", "Wine"],
+      "default": "None"
+    }
+  }
+}
