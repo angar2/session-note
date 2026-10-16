@@ -6,8 +6,9 @@ import { emptyNote, formatNote, isEmpty, parseNote, type Note } from './note'
 
 export type Loaded = { ok: true; note: Note } | { ok: false; path: string; reason: string }
 
-export const notePath = async ($: EngineInterface, sessionId: string) =>
-  `${await dataDir($)}/sessions/${sessionId}.json`
+export async function notePath($: EngineInterface, sessionId: string): Promise<string> {
+  return `${await dataDir($)}/sessions/${sessionId}.json`
+}
 
 // 파일이 없으면 빈 노트다. 읽을 수 없으면 실패를 알린다(사본 남기기는 TASK-004)
 export async function loadNote($: EngineInterface, path: string): Promise<Loaded> {
