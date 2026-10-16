@@ -1,22 +1,8 @@
 // 노트·항목·제안의 형식과 파일 글자 ↔ 노트 변환 (spec DATA.md 2절)
 
-export type ItemSource = 'proposal' | 'user' | 'instruction' | 'auto'
+import type { Item, Note, Proposal } from '../types'
 
-export type Item = {
-  id: string
-  title: string
-  body: string
-  source: ItemSource
-  status: 'open' | 'done'
-  createdAt: string
-  doneAt: string | null
-}
-
-export type Proposal =
-  | { id: string; kind: 'new'; title: string; body: string; proposedAt: string }
-  | { id: string; kind: 'done'; itemId: string; proposedAt: string }
-
-export type Note = { version: 1; items: Item[]; proposals: Proposal[] }
+export type { Item, ItemSource, Note, Proposal } from '../types'
 
 export const emptyNote = (): Note => ({ version: 1, items: [], proposals: [] })
 
