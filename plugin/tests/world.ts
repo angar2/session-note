@@ -5,7 +5,8 @@ import type { On } from 'claude-code'
 
 import type { Item, Note } from '../types'
 
-export const PATH = '/home/zeke/.claude/plugins/data/session-note-inline/sessions/s1.json'
+export const pathOf = (id: string) => `/home/zeke/.claude/plugins/data/session-note-inline/sessions/${id}.json`
+export const PATH = pathOf('s1')
 export const TOOL = 'mcp__session-note__note'
 
 export const BAND = {
@@ -59,7 +60,8 @@ export type World = {
   told: () => string[]
 }
 
-export async function start($: Engine, on: On, note?: Note): Promise<World> {
+// raw: 노트 대신 파일에 그대로 둘 글(깨진 파일 시험)
+export async function start($: Engine, on: On, note?: Note, raw?: string): Promise<World> {
   const session = mock.session(on)
   const world: World = {
     files: new Map(),
@@ -74,6 +76,7 @@ export async function start($: Engine, on: On, note?: Note): Promise<World> {
         .flatMap(block => (block.type === 'text' ? [String(block.text)] : [])),
   }
   if (note) world.files.set(PATH, JSON.stringify(note))
+  if (raw !== undefined) world.files.set(PATH, raw)
   mock.env(on, { HOME: '/home/zeke' })
   mock.clock(on, { now: Date.parse('2026-10-16T05:00:00Z') })
   on('fs.exists', (_, e) => ({ value: world.files.has(e.path) }))
