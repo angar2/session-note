@@ -42,7 +42,7 @@ for (const surface of SURFACES) {
     const band = await $.ui.mount({ plugin: 'session-note', surface, ...BAND })
     const proposed = await call($, { action: 'propose', title: 'Check the redirect', body: 'Query strings' })
     expect(resultOf(proposed)).toContain('waits on the user')
-    expect((await band.find({ key: 'pending' }))?.text).toContain('New')
+    expect((await band.find({ key: 'pending' }))?.text).toContain('[+]')
     expect((await band.find({ key: 'pending' }))?.text).toContain('Check the redirect')
     expect(await band.find({ key: 'toggle' })).toBeUndefined()
     // 같은 제목은 두 번 올리지 않는다
@@ -68,7 +68,7 @@ for (const surface of SURFACES) {
     })
     const band = await $.ui.mount({ plugin: 'session-note', surface, ...BAND })
     expect(resultOf(await call($, { action: 'propose_done', id: '[a1b2c3d4]' }))).toContain('as done')
-    expect((await band.find({ key: 'pending' }))?.text).toContain('Done')
+    expect((await band.find({ key: 'pending' }))?.text).toContain('[✓]')
     await band.press({ key: await keyOf(band, 'dismiss-', 'Not yet') })
     expect(saved(world).items[0]).toMatchObject({ status: 'open' })
     expect(saved(world).proposals).toEqual([])
@@ -94,7 +94,7 @@ test('several proposals show as counts with View on the band and one by one in t
   await call($, { action: 'propose', title: 'Look at the retry limit' })
   await call($, { action: 'propose_done', id: 'a1b2c3d4' })
   const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
-  expect((await band.find({ key: 'pending' }))?.text).toContain('2 new · 1 done')
+  expect((await band.find({ key: 'pending' }))?.text).toContain('[+] 2 new · [✓] 1 done')
   expect((await band.find({ key: 'toggle' }))?.text).toContain('View')
   await band.press({ key: 'toggle' })
   expect(world.panes.has('session-note')).toBe(true)
@@ -105,6 +105,61 @@ test('several proposals show as counts with View on the band and one by one in t
   await pane.press({ key: await keyOf(pane, 'dismiss-', 'Dismiss') })
   expect(saved(world).proposals).toHaveLength(2)
   expect(world.told()).toEqual(['[session-note] The user dismissed your proposal "Translate the login error".'])
+})
+
+test('proposals are marked in color with gray bracketed buttons, ruled off, and unfold their details', async ($, on) => {
+  await start($, on, {
+    version: 1,
+    items: [
+      { ...item('a1b2c3d4-0000', 'Check the redirect', 'open', '2026-10-16T14:05:00+09:00'), body: 'Query strings' },
+    ],
+    proposals: [],
+  })
+  const pane = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...PANE })
+  const rules = async () => (await pane.findAll({ type: 'Text' })).filter(one => one.text.startsWith('─')).length
+  expect(await rules()).toBe(1)
+
+  const proposed = refIn(
+    resultOf(await call($, { action: 'propose', title: 'Translate the login error', body: 'Says 500' })),
+  )
+  await call($, { action: 'propose_done', id: 'a1b2c3d4' })
+  const colorOf = async (label: string) =>
+    (await pane.findAll({ type: 'Text' })).find(one => one.text === label)?.props['color']
+  expect(await colorOf('[+]')).toBe('suggestion')
+  expect(await colorOf('[✓]')).toBe('success')
+  const proposalButtons = (await pane.findAll({ type: 'Button' })).filter(
+    one => one.key?.startsWith('accept-') || one.key?.startsWith('dismiss-'),
+  )
+  expect(proposalButtons.map(one => [one.text, one.props['dimColor']])).toEqual([
+    ['[Add]', true],
+    ['[Dismiss]', true],
+    ['[Complete]', true],
+    ['[Not yet]', true],
+  ])
+  expect(await rules()).toBe(2)
+
+  const shows = async (body: string) => (await pane.findAll({ type: 'Text' })).some(one => one.text === body)
+  const newTitle = await keyOf(pane, 'ptitle-', 'Translate the login error')
+  expect(newTitle.startsWith(`ptitle-${proposed}`)).toBe(true)
+  await pane.press({ key: newTitle })
+  expect(await shows('Says 500')).toBe(true)
+  await pane.press({ key: newTitle })
+  expect(await shows('Says 500')).toBe(false)
+  // 완료 제안은 그 항목의 내용을 펼친다
+  await pane.press({ key: await keyOf(pane, 'ptitle-', 'Check the redirect') })
+  expect(await shows('Query strings')).toBe(true)
+
+  const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
+  expect((await band.find({ key: 'pending' }))?.text).toContain('[+] 1 new · [✓] 1 done')
+})
+
+test('one proposal on the band has a colored mark and gray bracketed buttons', async ($, on) => {
+  await start($, on)
+  await call($, { action: 'propose', title: 'Check the redirect' })
+  const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
+  expect((await band.findAll({ type: 'Text' })).find(one => one.text === '[+]')?.props['color']).toBe('suggestion')
+  const accept = await band.find({ key: await keyOf(band, 'accept-', '[Add]') })
+  expect([accept?.text, accept?.props['dimColor']]).toEqual(['[Add]', true])
 })
 
 test('a done proposal whose item was deleted or completed is not shown', async ($, on) => {
@@ -274,7 +329,7 @@ test('Korean labels the proposal on the band', { options: { language: '한국어
   await start($, on)
   await call($, { action: 'propose', title: '리다이렉트 확인' })
   const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
-  expect((await band.find({ key: 'pending' }))?.text).toContain('새 항목')
+  expect((await band.find({ key: 'pending' }))?.text).toContain('[+]  리다이렉트 확인')
   expect(await keyOf(band, 'accept-', '추가')).toMatch(/^accept-/)
   expect(await keyOf(band, 'dismiss-', '무시')).toMatch(/^dismiss-/)
 })

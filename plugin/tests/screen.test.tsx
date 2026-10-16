@@ -26,6 +26,9 @@ for (const surface of SURFACES) {
     expect(await pane.find({ type: 'Text', text: 'No open items' })).toBeDefined()
 
     await pane.press({ key: 'add' })
+    // [추가] [취소]는 그 줄 오른쪽 끝에 있다
+    const buttons = (await pane.findAll({ type: 'Box' })).find(box => box.props['justifyContent'] === 'flex-end')
+    expect(buttons?.text).toBe('[Add][Cancel]')
     await pane.input({ key: 'add-title', text: 'Check token expiry', kind: 'change' })
     await pane.input({ key: 'add-body', text: 'A 500 right after expiry', kind: 'change' })
     await pane.press({ key: 'add-ok' })
@@ -100,6 +103,8 @@ for (const surface of SURFACES) {
 
     await pane.press({ key: 'done-group' })
     expect((await pane.find({ key: 'check-a' }))?.text).toContain('☑')
+    // 완료 항목 제목도 열린 항목과 같은 기본 글자색
+    expect((await pane.find({ key: 'title-a' }))?.props['dimColor']).toBeUndefined()
     await pane.press({ key: 'check-a' })
     expect(saved(world).items[0]).toMatchObject({ status: 'open', doneAt: null })
     expect((await band.find({ key: 'count' }))?.text).toBe('Notes 1')

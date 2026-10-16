@@ -22,15 +22,13 @@ const TEXT = {
     more: (n: number) => `[Show more (${n})]`,
     submitAdd: 'Add',
     submitSave: 'Save',
-    newLabel: 'New',
-    doneLabel: 'Done',
-    accept: 'Add',
-    dismiss: 'Dismiss',
-    complete: 'Complete',
-    notYet: 'Not yet',
+    accept: '[Add]',
+    dismiss: '[Dismiss]',
+    complete: '[Complete]',
+    notYet: '[Not yet]',
     view: 'View',
-    pending: (fresh: number, finished: number) =>
-      [fresh > 0 ? `${fresh} new` : '', finished > 0 ? `${finished} done` : ''].filter(Boolean).join(' · '),
+    pendingNew: (n: number) => `${n} new`,
+    pendingDone: (n: number) => `${n} done`,
     command: 'Open the notes pane',
     saveFailed: "Couldn't save the note",
     unreadable: "Couldn't read the saved note; kept a copy",
@@ -54,15 +52,13 @@ const TEXT = {
     more: (n: number) => `[더 보기 (${n})]`,
     submitAdd: '추가',
     submitSave: '저장',
-    newLabel: '새 항목',
-    doneLabel: '끝난 항목',
-    accept: '추가',
-    dismiss: '무시',
-    complete: '완료',
-    notYet: '아직',
+    accept: '[추가]',
+    dismiss: '[무시]',
+    complete: '[완료]',
+    notYet: '[아직]',
     view: '보기',
-    pending: (fresh: number, finished: number) =>
-      [fresh > 0 ? `새 항목 ${fresh}` : '', finished > 0 ? `끝난 항목 ${finished}` : ''].filter(Boolean).join(' · '),
+    pendingNew: (n: number) => `새 항목 ${n}`,
+    pendingDone: (n: number) => `끝난 항목 ${n}`,
     command: '노트 패널을 열어요',
     saveFailed: '노트를 저장하지 못했어요',
     unreadable: '저장된 노트를 읽지 못해 사본을 남겼어요',
@@ -70,6 +66,12 @@ const TEXT = {
 }
 
 export type Text = (typeof TEXT)['en']
+
+// 제안 종류 표시 — 언어와 상관없이 새 항목 제안은 파란 [+], 완료 제안은 초록 [✓] (테마 키)
+export const MARK = {
+  new: { label: '[+]', color: 'suggestion' },
+  done: { label: '[✓]', color: 'success' },
+} as const
 
 // userConfig language 값 → 문구. 모르는 값은 기본 English
 export const langOf = (value: unknown): Lang => (value === '한국어' ? 'ko' : 'en')
