@@ -59,6 +59,8 @@ claude plugin install session-note@angar2
 
 화면 언어는 **English**(기본)와 **한국어** 중 하나다. `/plugin install`이 물어보고, 셸에서 설치할 때는 `--config language=한국어`를 붙이면 한국어가 된다. 언제든 `/plugin configure session-note@angar2`로 바꿀 수 있고, 노트의 항목은 그대로 남는다.
 
+띠는 기본으로 배경색이 없다. 더 눈에 띄게 하려면 `/plugin configure session-note@angar2`의 **Band background**를 `Gray`(회색)·`Olive`(올리브)·`Wine`(와인) 중 하나로 고른다(`None`은 끈다). 색은 터미널 테마를 따른다.
+
 ## 노트는 세션을 따라간다
 
 - 세션마다 노트가 따로 있다. `/clear`는 새 세션을 시작하므로 새 빈 노트가 되고, 옛 노트는 옛 세션에 남는다.

@@ -11,6 +11,13 @@
       "description": "Language of the notes band and pane",
       "options": ["English", "한국어"],
       "default": "English"
+    },
+    "bandBackground": {
+      "type": "string",
+      "title": "Band background",
+      "description": "Background color of the notes band above the prompt",
+      "options": ["None", "Gray", "Olive", "Wine"],
+      "default": "None"
     }
   }
 }

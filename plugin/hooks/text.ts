@@ -77,3 +77,11 @@ export const MARK = {
 export const langOf = (value: unknown): Lang => (value === '한국어' ? 'ko' : 'en')
 
 export const textOf = (lang: Lang): Text => TEXT[lang]
+
+// userConfig bandBackground 값 → 띠 배경 테마 키. None·모르는 값은 배경 없음 (spec UI.md 1절)
+const BACKGROUND = { Gray: 'subtle', Olive: 'diffAddedDimmed', Wine: 'diffRemovedDimmed' } as const
+
+export const backgroundOf = (value: unknown) =>
+  typeof value === 'string' && Object.hasOwn(BACKGROUND, value)
+    ? BACKGROUND[value as keyof typeof BACKGROUND]
+    : undefined

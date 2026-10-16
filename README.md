@@ -59,6 +59,8 @@ The first command registers this repository as a plugin source; the second insta
 
 The screen language is **English** (default) or **한국어**. `/plugin install` asks for it; from a shell, add `--config language=한국어` for Korean. Change it any time with `/plugin configure session-note@angar2`; the note keeps its items.
 
+The band has no background by default. To make it stand out, set **Band background** in `/plugin configure session-note@angar2` to `Gray`, `Olive` or `Wine` (`None` turns it off). The colors follow your terminal theme.
+
 ## The note follows the session
 
 - Every session has its own note. `/clear` starts a new session, so you get a new, empty note; the old one stays with the old session.

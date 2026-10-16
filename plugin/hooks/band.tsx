@@ -5,7 +5,8 @@ import { MARK } from './text'
 import type { Text } from './text'
 import { acceptProposal, dismissProposal, isPaneOpen, liveProposals, openItems, readNote, togglePane } from './view'
 
-export function drawBand(on: On, text: Text) {
+// background: 설정에서 고른 띠 배경 테마 키(없으면 배경 없음)
+export function drawBand(on: On, text: Text, background?: string) {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
     const { Box, Button, Text: T } = $.ui.resolve(e)
@@ -63,7 +64,7 @@ export function drawBand(on: On, text: Text) {
       )
 
     return (
-      <Box flexDirection="row" justifyContent="space-between" width={e.props.bodyColumns}>
+      <Box flexDirection="row" justifyContent="space-between" width={e.props.bodyColumns} backgroundColor={background}>
         <Box flexDirection="row" flexShrink={1}>
           <Box key="count" flexShrink={0}>
             {isEmpty ? (
