@@ -1,12 +1,15 @@
-// 오른쪽 노트 패널 — 열린 항목·새 항목·완료 묶음과 펼침·수정·삭제 (spec UI.md 2·3절)
+// 오른쪽 노트 패널 — 세션의 제안·열린 항목·새 항목·완료 묶음과 펼침·수정·삭제 (spec UI.md 2·3절)
 import type { EngineInterface, On } from 'claude-code'
 
 import type { Item } from './note'
 import type { Text } from './text'
 import {
   PANE,
+  acceptProposal,
   addItem,
+  dismissProposal,
   doneItems,
+  liveProposals,
   readNote,
   openItems,
   readView,
@@ -213,9 +216,39 @@ export function drawPane(on: On, text: Text) {
               : []),
           ]
 
+    // 맨 위의 제안 — 띠와 같은 문구와 버튼으로 하나씩
+    const proposalRows = liveProposals(current).map(p => (
+      <Box key={`proposal-${p.id}`} flexDirection="row" justifyContent="space-between">
+        <Box flexShrink={1}>
+          <T wrap="truncate-end">
+            <T dimColor>{p.kind === 'new' ? text.newLabel : text.doneLabel}</T>
+            {'  '}
+            {p.kind === 'new' ? p.title : (current.items.find(item => item.id === p.itemId)?.title ?? '')}
+          </T>
+        </Box>
+        <Box flexDirection="row" gap={2} flexShrink={0}>
+          <Button key={`accept-${p.id}`} plain onPress={() => void acceptProposal($, text, p.id)}>
+            <T color="claude">{p.kind === 'new' ? text.accept : text.complete}</T>
+          </Button>
+          <Button
+            key={`dismiss-${p.id}`}
+            plain
+            dimColor
+            label={p.kind === 'new' ? text.dismiss : text.notYet}
+            onPress={() => void dismissProposal($, text, p.id)}
+          />
+        </Box>
+      </Box>
+    ))
+
     return (
       <Box flexDirection="column" width={e.props.bodyColumns}>
         <T bold>{text.notes}</T>
+        {proposalRows.length === 0 ? null : (
+          <Box marginTop={1} flexDirection="column">
+            {proposalRows}
+          </Box>
+        )}
         <Box marginTop={1} flexDirection="column">
           {open.length === 0 ? <T dimColor>{text.none}</T> : open.flatMap(row)}
         </Box>
