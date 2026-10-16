@@ -178,6 +178,63 @@ test('list, complete and accept work by ref; an unknown ref is refused', async (
   expect(world.told()).toEqual([])
 })
 
+test('edit, delete and reopen work by ref on the band and pane, with no notice', async ($, on) => {
+  const world = await start($, on, {
+    version: 1,
+    items: [
+      { ...item('a1b2c3d4-0000', 'Check the redirect', 'open', '2026-10-16T14:05:00+09:00'), body: 'Query strings' },
+      item('e5f6a7b8-0000', 'Old work', 'done', '2026-10-16T13:00:00+09:00'),
+      item('c9d0e1f2-0000', 'Drop me', 'open', '2026-10-16T14:10:00+09:00'),
+    ],
+    proposals: [
+      { id: 'p0000000-0000', kind: 'done', itemId: 'c9d0e1f2-0000', proposedAt: '2026-10-16T14:20:00+09:00' },
+    ],
+  })
+  const pane = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...PANE })
+  expect(resultOf(await call($, { action: 'edit', id: 'a1b2c3d4', title: 'Check the login redirect' }))).toBe(
+    'Edited [a1b2c3d4] "Check the login redirect".',
+  )
+  expect(resultOf(await call($, { action: 'edit', id: '[e5f6a7b8]', body: 'Was in v1' }))).toBe(
+    'Edited [e5f6a7b8] "Old work".',
+  )
+  // 내용만 비우면 제목은 그대로
+  await call($, { action: 'edit', id: 'a1b2c3d4', title: '', body: '' })
+  expect(resultOf(await call($, { action: 'reopen', id: 'e5f6a7b8' }))).toBe('Reopened [e5f6a7b8] "Old work".')
+  expect(resultOf(await call($, { action: 'delete', id: 'c9d0e1f2' }))).toBe('Deleted [c9d0e1f2] "Drop me".')
+  expect(saved(world).items.map(one => [one.title, one.body, one.status, one.doneAt])).toEqual([
+    ['Check the login redirect', '', 'open', null],
+    ['Old work', 'Was in v1', 'open', null],
+  ])
+  expect(saved(world).proposals).toEqual([])
+  expect(await keyOf(pane, 'title-', 'Check the login redirect')).toMatch(/^title-/)
+  expect(await keyOf(pane, 'title-', 'Old work')).toMatch(/^title-/)
+  expect((await pane.findAll({ type: 'Button' })).some(one => one.text.includes('Drop me'))).toBe(false)
+  const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
+  expect((await band.find({ key: 'count' }))?.text).toBe('Notes 2')
+  expect(world.told()).toEqual([])
+})
+
+test('edit, delete and reopen refuse an unknown ref, an empty edit and a failed save', async ($, on) => {
+  const world = await start($, on, {
+    version: 1,
+    items: [item('a1b2c3d4-0000', 'Check the redirect', 'open', '2026-10-16T14:05:00+09:00')],
+    proposals: [],
+  })
+  expect((await call($, { action: 'edit', id: 'zzzzzzzz', title: 'X' })).deny).toContain('No item')
+  expect((await call($, { action: 'delete', id: 'zzzzzzzz' })).deny).toContain('No item')
+  expect((await call($, { action: 'reopen', id: 'zzzzzzzz' })).deny).toContain('No item')
+  expect((await call($, { action: 'edit', id: 'a1b2c3d4' })).deny).toContain('Give a new title or body')
+  expect(resultOf(await call($, { action: 'reopen', id: 'a1b2c3d4' }))).toBe(
+    '[a1b2c3d4] "Check the redirect" is already open.',
+  )
+  world.failWrite = true
+  expect((await call($, { action: 'delete', id: 'a1b2c3d4' })).deny).toContain("Couldn't save")
+  expect((await call($, { action: 'edit', id: 'a1b2c3d4', title: 'X' })).deny).toContain("Couldn't save")
+  world.failWrite = false
+  expect(saved(world).items.map(one => one.title)).toEqual(['Check the redirect'])
+  expect(world.toasts).toEqual([])
+})
+
 test('after a compaction the whole note is handed over once; an empty note is one line', async ($, on) => {
   const world = await start($, on)
   const contextOf = async (source: 'compact' | 'startup') =>

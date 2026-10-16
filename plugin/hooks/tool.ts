@@ -1,10 +1,20 @@
-// 세션(모델)이 쓰는 노트 도구 — 목록·제안·완료 제안, 사용자가 시킨 추가·완료, 대화로 받은 제안 (spec AGENT.md 1~3절)
+// 세션(모델)이 쓰는 노트 도구 — 목록·제안·완료 제안, 사용자가 시킨 추가·완료·수정·삭제·되돌리기, 대화로 받은 제안 (spec AGENT.md 1~3절)
 import type { EngineInterface, On } from 'claude-code'
 
 import { isoAt, newId, openItems } from './note'
 import type { Item, Note, Proposal } from './note'
 import { describe, refOf } from './tell'
-import { acceptIn, completeIn, liveProposals, readNote, saveChange } from './view'
+import {
+  acceptIn,
+  completeIn,
+  editIn,
+  forgetItem,
+  liveProposals,
+  readNote,
+  removeIn,
+  reopenIn,
+  saveChange,
+} from './view'
 
 const NAME = 'note'
 const CALLED = 'mcp__session-note__note'
@@ -18,7 +28,12 @@ Actions:
 - propose_done: suggest that an open item is done (id). The user completes it or says not yet.
 - add: add an item (title, optional body) — only when the user tells you to note something.
 - complete: complete an item (id) — only when the user tells you it is done.
+- edit: change an item's title and/or body (id, title, body; an empty body clears it) — only when the user tells you to.
+- delete: delete an item (id) — only when the user tells you to.
+- reopen: reopen a done item (id) — only when the user tells you it is not done.
 - accept: accept a waiting proposal (id) — when the user answers it in the conversation ("keep it").
+
+Never edit, delete or reopen items on your own. To change an item, edit it; do not add a new item in its place.
 
 When to propose: only what the conversation clearly put off for later ("later", "let's skip that for now") and questions left without a conclusion ("is this right?", "we should check that"). Do not propose work you are about to do now, details you may decide yourself, or steps of your own plan. Never ask in your reply whether to add something to the note, and do not point the user to your proposals; they see them on the band. Propose and move on.
 
@@ -27,10 +42,16 @@ Completion check: when you finish a piece of work, and when the user asks you to
 const SCHEMA = {
   type: 'object',
   properties: {
-    action: { type: 'string', enum: ['list', 'propose', 'propose_done', 'add', 'complete', 'accept'] },
-    title: { type: 'string', description: 'The item title, one short line (propose, add).' },
-    body: { type: 'string', description: 'Optional details (propose, add).' },
-    id: { type: 'string', description: 'The 8-character ref of an item or proposal (propose_done, complete, accept).' },
+    action: {
+      type: 'string',
+      enum: ['list', 'propose', 'propose_done', 'add', 'complete', 'edit', 'delete', 'reopen', 'accept'],
+    },
+    title: { type: 'string', description: 'The item title, one short line (propose, add, edit).' },
+    body: { type: 'string', description: 'Optional details (propose, add, edit).' },
+    id: {
+      type: 'string',
+      description: 'The 8-character ref of an item or proposal (propose_done, complete, edit, delete, reopen, accept).',
+    },
   },
   required: ['action'],
 } as const
@@ -66,11 +87,21 @@ async function answer($: EngineInterface, args: Record<string, unknown>): Promis
   const ref = refIn(args['id'])
   if (action === 'propose_done') return proposeDone($, ref)
   if (action === 'complete') return complete($, ref)
+  if (action === 'edit') return edit($, ref, textOf(args['title']), bodyIn(args['body']))
+  if (action === 'delete') return remove($, ref)
+  if (action === 'reopen') return reopen($, ref)
   if (action === 'accept') return accept($, ref)
-  return { deny: `Unknown action "${action}". Use list, propose, propose_done, add, complete or accept.` }
+  return {
+    deny: `Unknown action "${action}". Use list, propose, propose_done, add, complete, edit, delete, reopen or accept.`,
+  }
 }
 
 const openItem = (n: Note, ref: string) => openItems(n).find(item => sameRef(item.id, ref))
+
+const anyItem = (n: Note, ref: string) => n.items.find(item => sameRef(item.id, ref))
+
+// edit의 내용 — 주지 않았으면 그대로 두고, 빈 글이면 비운다
+const bodyIn = (value: unknown) => (typeof value === 'string' ? value.trim() : undefined)
 
 async function propose($: EngineInterface, title: string, body: string): Promise<Answer> {
   if (title === '') return { deny: 'A proposal needs a title.' }
@@ -121,6 +152,35 @@ async function complete($: EngineInterface, ref: string): Promise<Answer> {
   const saved = await saveChange($, n => completeIn(n, item.id, at))
   if (saved === null) return unsaved
   return { result: `Completed ${named(item)}.` }
+}
+
+async function edit($: EngineInterface, ref: string, title: string, body: string | undefined): Promise<Answer> {
+  const item = anyItem(await readNote($), ref)
+  if (item === undefined) return { deny: `No item [${ref}]. Use list to see the refs.` }
+  if (title === '' && body === undefined) return { deny: 'Give a new title or body to edit.' }
+  const saved = await saveChange($, n => editIn(n, item.id, title, body))
+  if (saved === null) return unsaved
+  const edited = saved.items.find(one => one.id === item.id)
+  if (edited === undefined) return { deny: `The item [${ref}] is gone.` }
+  return { result: `Edited ${named(edited)}.` }
+}
+
+async function remove($: EngineInterface, ref: string): Promise<Answer> {
+  const item = anyItem(await readNote($), ref)
+  if (item === undefined) return { deny: `No item [${ref}]. Use list to see the refs.` }
+  const saved = await saveChange($, n => removeIn(n, item.id))
+  if (saved === null) return unsaved
+  await forgetItem($, item.id)
+  return { result: `Deleted ${named(item)}.` }
+}
+
+async function reopen($: EngineInterface, ref: string): Promise<Answer> {
+  const item = anyItem(await readNote($), ref)
+  if (item === undefined) return { deny: `No item [${ref}]. Use list to see the refs.` }
+  if (item.status === 'open') return { result: `${named(item)} is already open.` }
+  const saved = await saveChange($, n => reopenIn(n, item.id))
+  if (saved === null) return unsaved
+  return { result: `Reopened ${named(item)}.` }
 }
 
 async function accept($: EngineInterface, ref: string): Promise<Answer> {

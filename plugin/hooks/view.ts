@@ -133,6 +133,21 @@ export const completeIn = (n: Note, id: string, at: string): Note => ({
   proposals: n.proposals.filter(p => !(p.kind === 'done' && p.itemId === id)),
 })
 
+// 완료한 항목을 다시 연다
+export const reopenIn = (n: Note, id: string): Note =>
+  withItem(n, id, item => (item.status === 'done' ? { ...item, status: 'open', doneAt: null } : item))
+
+// 항목과 그 항목을 가리키는 완료 제안을 지운다
+export const removeIn = (n: Note, id: string): Note => ({
+  ...n,
+  items: n.items.filter(item => item.id !== id),
+  proposals: n.proposals.filter(p => !(p.kind === 'done' && p.itemId === id)),
+})
+
+// 제목·내용을 고친다. 빈 제목과 주지 않은 내용은 그대로 둔다
+export const editIn = (n: Note, id: string, title: string, body?: string): Note =>
+  withItem(n, id, item => ({ ...item, title: title === '' ? item.title : title, body: body ?? item.body }))
+
 // 제안을 받는다: 새 항목 제안은 받은 시각의 항목(올린 경로 proposal)이 되고, 완료 제안은 그 항목을 완료한다
 export function acceptIn(n: Note, proposal: Proposal, at: string, itemId: string): Note {
   const rest = { ...n, proposals: n.proposals.filter(p => p.id !== proposal.id) }
@@ -151,11 +166,7 @@ export function acceptIn(n: Note, proposal: Proposal, at: string, itemId: string
 
 export async function toggleDone($: EngineInterface, text: Text, id: string) {
   const at = isoAt(await $.clock.now())
-  const saved = await change($, text, n =>
-    itemIn(n, id)?.status === 'open'
-      ? completeIn(n, id, at)
-      : withItem(n, id, item => ({ ...item, status: 'open', doneAt: null })),
-  )
+  const saved = await change($, text, n => (itemIn(n, id)?.status === 'open' ? completeIn(n, id, at) : reopenIn(n, id)))
   if (saved === null) return
   await setView($, view => (view.openId === id ? { ...view, openId: null, editing: null, armedId: null } : view))
   const item = itemIn(saved, id)
@@ -185,9 +196,7 @@ export async function addItem($: EngineInterface, text: Text, draft: Draft) {
 // 제목을 비우고 저장하면 제목은 그대로 두고 내용만 저장한다
 export async function saveEdit($: EngineInterface, text: Text, id: string, draft: Draft) {
   const title = draft.title.trim()
-  const saved = await change($, text, n =>
-    withItem(n, id, item => ({ ...item, title: title === '' ? item.title : title, body: draft.body.trim() })),
-  )
+  const saved = await change($, text, n => editIn(n, id, title, draft.body.trim()))
   if (saved === null) return
   await setView($, view => ({ ...view, editing: null }))
   const item = itemIn(saved, id)
@@ -197,14 +206,20 @@ export async function saveEdit($: EngineInterface, text: Text, id: string, draft
 // 항목과 그 항목을 가리키는 제안을 완전히 지운다
 export async function removeItem($: EngineInterface, text: Text, id: string) {
   const before = itemIn(await read($, note), id)
-  const saved = await change($, text, n => ({
-    ...n,
-    items: n.items.filter(item => item.id !== id),
-    proposals: n.proposals.filter(p => !(p.kind === 'done' && p.itemId === id)),
-  }))
+  const saved = await change($, text, n => removeIn(n, id))
   if (saved === null) return
   await setView($, view => ({ ...view, openId: null, armedId: null, editing: null }))
   if (before) await tell($, told.removed(before))
+}
+
+// 세션이 지운 항목의 펼침·초안을 닫는다
+export async function forgetItem($: EngineInterface, id: string) {
+  await setView($, view => ({
+    ...view,
+    openId: view.openId === id ? null : view.openId,
+    armedId: view.armedId === id ? null : view.armedId,
+    editing: view.editing?.id === id ? null : view.editing,
+  }))
 }
 
 // 띠·패널의 추가·완료 — 제안을 받는다
