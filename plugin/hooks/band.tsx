@@ -1,8 +1,8 @@
-// 입력창 위 띠 — 열린 항목 수와 패널 열기·닫기 (spec UI.md 1절)
+// 입력창 위 띠 — 열린 항목 수, 세션의 제안(하나면 그 제안과 버튼, 여럿이면 개수와 보기), 패널 열기·닫기 (spec UI.md 1절)
 import type { On } from 'claude-code'
 
 import type { Text } from './text'
-import { isPaneOpen, openItems, readNote, togglePane } from './view'
+import { acceptProposal, dismissProposal, isPaneOpen, liveProposals, openItems, readNote, togglePane } from './view'
 
 export function drawBand(on: On, text: Text) {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
@@ -10,25 +10,69 @@ export function drawBand(on: On, text: Text) {
     const { Box, Button, Text: T } = $.ui.resolve(e)
     const current = await readNote($)
     const count = openItems(current).length
-    const isEmpty = count === 0 && current.proposals.length === 0
+    const proposals = liveProposals(current)
+    const isEmpty = count === 0 && proposals.length === 0
     const isOpen = await isPaneOpen($)
+    const toggle = (label: string) => (
+      <Button key="toggle" plain label={isOpen ? text.close : label} onPress={() => void togglePane($, text.notes)} />
+    )
+
+    // 제안이 하나면 그 제목과 받기·무시 버튼, 여럿이면 개수와 보기
+    const only = proposals.length === 1 ? proposals[0] : undefined
+    const titleOf = (itemId: string) => current.items.find(item => item.id === itemId)?.title ?? ''
+    const pending =
+      proposals.length === 0 ? null : only === undefined ? (
+        <T dimColor>
+          {text.pending(
+            proposals.filter(p => p.kind === 'new').length,
+            proposals.filter(p => p.kind === 'done').length,
+          )}
+        </T>
+      ) : (
+        <T wrap="truncate-end">
+          <T dimColor>{only.kind === 'new' ? text.newLabel : text.doneLabel}</T>
+          {'  '}
+          {only.kind === 'new' ? only.title : titleOf(only.itemId)}
+        </T>
+      )
+    const actions =
+      only === undefined ? (
+        toggle(proposals.length === 0 ? text.open : text.view)
+      ) : (
+        <Box flexDirection="row" gap={2} flexShrink={0}>
+          <Button key={`accept-${only.id}`} plain onPress={() => void acceptProposal($, text, only.id)}>
+            <T color="claude">{only.kind === 'new' ? text.accept : text.complete}</T>
+          </Button>
+          <Button
+            key={`dismiss-${only.id}`}
+            plain
+            dimColor
+            label={only.kind === 'new' ? text.dismiss : text.notYet}
+            onPress={() => void dismissProposal($, text, only.id)}
+          />
+        </Box>
+      )
+
     return (
       <Box flexDirection="row" justifyContent="space-between" width={e.props.bodyColumns}>
-        <Box key="count">
-          {isEmpty ? (
-            <T dimColor>{text.notes} 0</T>
-          ) : (
-            <T>
-              {text.notes} <T bold>{String(count)}</T>
-            </T>
+        <Box flexDirection="row" flexShrink={1}>
+          <Box key="count" flexShrink={0}>
+            {isEmpty ? (
+              <T dimColor>{text.notes} 0</T>
+            ) : (
+              <T>
+                {text.notes} <T bold>{String(count)}</T>
+              </T>
+            )}
+          </Box>
+          {pending === null ? null : (
+            <Box key="pending" flexShrink={1}>
+              <T dimColor>{'  │  '}</T>
+              {pending}
+            </Box>
           )}
         </Box>
-        <Button
-          key="toggle"
-          plain
-          label={isOpen ? text.close : text.open}
-          onPress={() => void togglePane($, text.notes)}
-        />
+        {actions}
       </Box>
     )
   })
