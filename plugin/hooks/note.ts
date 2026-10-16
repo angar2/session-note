@@ -10,6 +10,17 @@ export const isEmpty = (note: Note) => note.items.length === 0 && note.proposals
 
 export const newId = () => crypto.randomUUID()
 
+// 열린 항목은 먼저 올라온 것이 위, 완료 항목은 최근에 끝난 것이 위
+export const openItems = (n: Note) =>
+  n.items.filter(item => item.status === 'open').sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+
+export const doneItems = (n: Note) =>
+  n.items.filter(item => item.status === 'done').sort((a, b) => (b.doneAt ?? '').localeCompare(a.doneAt ?? ''))
+
+// 완료 제안의 대상이 지워졌거나 이미 완료면 그 제안은 없는 것으로 본다(spec DATA.md 2절)
+export const liveProposals = (n: Note) =>
+  n.proposals.filter(p => p.kind === 'new' || n.items.some(item => item.id === p.itemId && item.status === 'open'))
+
 // 시간대를 붙인 ISO 형식: 2026-10-15T14:32:00+09:00
 export function isoAt(ms: number): string {
   const d = new Date(ms)

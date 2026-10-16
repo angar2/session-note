@@ -2,9 +2,12 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
-import type { Draft, Item, Note, View } from '../types'
+import type { Draft, Item, Note, Proposal, View } from '../types'
 import { isoAt, newId } from './note'
+
+export { doneItems, liveProposals, openItems } from './note'
 import { saveNote } from './store'
+import { tell, told } from './tell'
 import type { Text } from './text'
 
 export type { Draft, View } from '../types'
@@ -79,25 +82,24 @@ export async function togglePane($: EngineInterface, title: string) {
   await paneClosed($)
 }
 
-// 열린 항목은 먼저 올라온 것이 위, 완료 항목은 최근에 끝난 것이 위
-export const openItems = (n: Note) =>
-  n.items.filter(item => item.status === 'open').sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-
-export const doneItems = (n: Note) =>
-  n.items.filter(item => item.status === 'done').sort((a, b) => (b.doneAt ?? '').localeCompare(a.doneAt ?? ''))
-
-// 노트를 바꿔 저장한다. 저장에 성공했을 때만 화면 값을 바꾸고, 실패하면 토스트를 띄우고 false
-async function change($: EngineInterface, text: Text, edit: (n: Note) => Note): Promise<boolean> {
+// 노트를 바꿔 저장한다. 저장에 성공하면 화면 값을 바꾸고 저장된 노트를, 노트가 열리지 않았거나 실패하면 null
+export async function saveChange($: EngineInterface, edit: (n: Note) => Note): Promise<Note | null> {
   const opened = await read($, session)
-  if (opened === null) return false
+  if (opened === null) return null
   try {
     const saved = await saveNote($, opened.path, edit)
     await update($, note, () => saved)
-    return true
+    return saved
   } catch {
-    $.ui.toast(text.saveFailed)
-    return false
+    return null
   }
+}
+
+// 사용자가 화면에서 바꾼 것 — 실패하면 토스트를 띄운다
+async function change($: EngineInterface, text: Text, edit: (n: Note) => Note): Promise<Note | null> {
+  const saved = await saveChange($, edit)
+  if (saved === null) $.ui.toast(text.saveFailed)
+  return saved
 }
 
 const withItem = (n: Note, id: string, edit: (item: Item) => Item): Note => ({
@@ -105,20 +107,41 @@ const withItem = (n: Note, id: string, edit: (item: Item) => Item): Note => ({
   items: n.items.map(item => (item.id === id ? edit(item) : item)),
 })
 
-// 완료로 바꾸면 그 항목의 완료 제안은 없앤다(spec DATA.md 2절)
+const itemIn = (n: Note, id: string) => n.items.find(item => item.id === id)
+
+// 항목을 완료한다. 그 항목의 완료 제안은 없앤다(spec DATA.md 2절)
+export const completeIn = (n: Note, id: string, at: string): Note => ({
+  ...withItem(n, id, item => (item.status === 'open' ? { ...item, status: 'done', doneAt: at } : item)),
+  proposals: n.proposals.filter(p => !(p.kind === 'done' && p.itemId === id)),
+})
+
+// 제안을 받는다: 새 항목 제안은 받은 시각의 항목(올린 경로 proposal)이 되고, 완료 제안은 그 항목을 완료한다
+export function acceptIn(n: Note, proposal: Proposal, at: string, itemId: string): Note {
+  const rest = { ...n, proposals: n.proposals.filter(p => p.id !== proposal.id) }
+  if (proposal.kind === 'done') return completeIn(rest, proposal.itemId, at)
+  const item: Item = {
+    id: itemId,
+    title: proposal.title,
+    body: proposal.body,
+    source: 'proposal',
+    status: 'open',
+    createdAt: at,
+    doneAt: null,
+  }
+  return { ...rest, items: [...rest.items, item] }
+}
+
 export async function toggleDone($: EngineInterface, text: Text, id: string) {
   const at = isoAt(await $.clock.now())
-  const ok = await change($, text, n => {
-    const toggled = withItem(n, id, item =>
-      item.status === 'open' ? { ...item, status: 'done', doneAt: at } : { ...item, status: 'open', doneAt: null },
-    )
-    const isDone = toggled.items.find(item => item.id === id)?.status === 'done'
-    return isDone
-      ? { ...toggled, proposals: toggled.proposals.filter(p => !(p.kind === 'done' && p.itemId === id)) }
-      : toggled
-  })
-  if (ok)
-    await setView($, view => (view.openId === id ? { ...view, openId: null, editing: null, armedId: null } : view))
+  const saved = await change($, text, n =>
+    itemIn(n, id)?.status === 'open'
+      ? completeIn(n, id, at)
+      : withItem(n, id, item => ({ ...item, status: 'open', doneAt: null })),
+  )
+  if (saved === null) return
+  await setView($, view => (view.openId === id ? { ...view, openId: null, editing: null, armedId: null } : view))
+  const item = itemIn(saved, id)
+  if (item) await tell($, item.status === 'done' ? told.completed(item) : told.reopened(item))
 }
 
 // 빈 제목은 추가하지 않고 초안을 그대로 둔다
@@ -135,25 +158,59 @@ export async function addItem($: EngineInterface, text: Text, draft: Draft) {
     createdAt: at,
     doneAt: null,
   }
-  const ok = await change($, text, n => ({ ...n, items: [...n.items, item] }))
-  if (ok) await setView($, view => ({ ...view, adding: null }))
+  const saved = await change($, text, n => ({ ...n, items: [...n.items, item] }))
+  if (saved === null) return
+  await setView($, view => ({ ...view, adding: null }))
+  await tell($, told.added(item))
 }
 
 // 제목을 비우고 저장하면 제목은 그대로 두고 내용만 저장한다
 export async function saveEdit($: EngineInterface, text: Text, id: string, draft: Draft) {
   const title = draft.title.trim()
-  const ok = await change($, text, n =>
+  const saved = await change($, text, n =>
     withItem(n, id, item => ({ ...item, title: title === '' ? item.title : title, body: draft.body.trim() })),
   )
-  if (ok) await setView($, view => ({ ...view, editing: null }))
+  if (saved === null) return
+  await setView($, view => ({ ...view, editing: null }))
+  const item = itemIn(saved, id)
+  if (item) await tell($, told.edited(item))
 }
 
 // 항목과 그 항목을 가리키는 제안을 완전히 지운다
 export async function removeItem($: EngineInterface, text: Text, id: string) {
-  const ok = await change($, text, n => ({
+  const before = itemIn(await read($, note), id)
+  const saved = await change($, text, n => ({
     ...n,
     items: n.items.filter(item => item.id !== id),
     proposals: n.proposals.filter(p => !(p.kind === 'done' && p.itemId === id)),
   }))
-  if (ok) await setView($, view => ({ ...view, openId: null, armedId: null, editing: null }))
+  if (saved === null) return
+  await setView($, view => ({ ...view, openId: null, armedId: null, editing: null }))
+  if (before) await tell($, told.removed(before))
+}
+
+// 띠·패널의 추가·완료 — 제안을 받는다
+export async function acceptProposal($: EngineInterface, text: Text, id: string) {
+  const proposal = (await read($, note)).proposals.find(p => p.id === id)
+  if (proposal === undefined) return
+  const at = isoAt(await $.clock.now())
+  const itemId = newId()
+  const saved = await change($, text, n => {
+    const latest = n.proposals.find(p => p.id === id)
+    return latest === undefined ? n : acceptIn(n, latest, at, itemId)
+  })
+  if (saved === null) return
+  const item = itemIn(saved, proposal.kind === 'new' ? itemId : proposal.itemId)
+  if (item) await tell($, proposal.kind === 'new' ? told.accepted(item) : told.confirmed(item))
+}
+
+// 띠·패널의 무시·아직 — 제안만 없앤다
+export async function dismissProposal($: EngineInterface, text: Text, id: string) {
+  const proposal = (await read($, note)).proposals.find(p => p.id === id)
+  if (proposal === undefined) return
+  const saved = await change($, text, n => ({ ...n, proposals: n.proposals.filter(p => p.id !== id) }))
+  if (saved === null) return
+  if (proposal.kind === 'new') return tell($, told.dismissed(proposal.title))
+  const item = itemIn(saved, proposal.itemId)
+  if (item) await tell($, told.notYet(item))
 }
