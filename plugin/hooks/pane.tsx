@@ -2,6 +2,7 @@
 import type { EngineInterface, On } from 'claude-code'
 
 import type { Item } from './note'
+import { MARK } from './text'
 import type { Text } from './text'
 import {
   PANE,
@@ -94,7 +95,7 @@ export function drawPane(on: On, text: Text) {
       const head = (
         <Box key={`row-${item.id}`} flexDirection="row" gap={1}>
           {check}
-          <Button key={`title-${item.id}`} plain dimColor={isDone} onPress={() => void toggleOpen($, item.id)}>
+          <Button key={`title-${item.id}`} plain onPress={() => void toggleOpen($, item.id)}>
             {item.title}
             {item.source === 'user' ? <T dimColor> ☺</T> : ''}
           </Button>
@@ -172,7 +173,7 @@ export function drawPane(on: On, text: Text) {
             ]
           : [
               ...fields('add', adding),
-              <Box flexDirection="row" gap={1}>
+              <Box flexDirection="row" gap={1} justifyContent="flex-end">
                 <Button key="add-ok" plain dimColor label={text.addOk} onPress={() => void addFromView($, text)} />
                 <Button
                   key="add-cancel"
@@ -216,30 +217,46 @@ export function drawPane(on: On, text: Text) {
               : []),
           ]
 
-    // 맨 위의 제안 — 띠와 같은 문구와 버튼으로 하나씩
-    const proposalRows = liveProposals(current).map(p => (
-      <Box key={`proposal-${p.id}`} flexDirection="row" justifyContent="space-between">
-        <Box flexShrink={1}>
-          <T wrap="truncate-end">
-            <T dimColor>{p.kind === 'new' ? text.newLabel : text.doneLabel}</T>
-            {'  '}
-            {p.kind === 'new' ? p.title : (current.items.find(item => item.id === p.itemId)?.title ?? '')}
-          </T>
+    // 맨 위의 제안 — 띠와 같은 표시와 버튼으로 하나씩. 제목을 누르면 내용(완료 제안은 그 항목의 내용)을 펼친다
+    const proposalRows = liveProposals(current).flatMap(p => {
+      const target = p.kind === 'done' ? current.items.find(item => item.id === p.itemId) : undefined
+      const body = p.kind === 'new' ? p.body : (target?.body ?? '')
+      const head = (
+        <Box key={`proposal-${p.id}`} flexDirection="row" justifyContent="space-between">
+          <Box flexDirection="row" gap={2} flexShrink={1}>
+            <Box flexShrink={0}>
+              <T color={MARK[p.kind].color}>{MARK[p.kind].label}</T>
+            </Box>
+            <Button key={`ptitle-${p.id}`} plain onPress={() => void toggleOpen($, p.id)}>
+              <T wrap="truncate-end">{p.kind === 'new' ? p.title : (target?.title ?? '')}</T>
+            </Button>
+          </Box>
+          <Box flexDirection="row" gap={1} flexShrink={0}>
+            <Button
+              key={`accept-${p.id}`}
+              plain
+              dimColor
+              label={p.kind === 'new' ? text.accept : text.complete}
+              onPress={() => void acceptProposal($, text, p.id)}
+            />
+            <Button
+              key={`dismiss-${p.id}`}
+              plain
+              dimColor
+              label={p.kind === 'new' ? text.dismiss : text.notYet}
+              onPress={() => void dismissProposal($, text, p.id)}
+            />
+          </Box>
         </Box>
-        <Box flexDirection="row" gap={2} flexShrink={0}>
-          <Button key={`accept-${p.id}`} plain onPress={() => void acceptProposal($, text, p.id)}>
-            <T color="claude">{p.kind === 'new' ? text.accept : text.complete}</T>
-          </Button>
-          <Button
-            key={`dismiss-${p.id}`}
-            plain
-            dimColor
-            label={p.kind === 'new' ? text.dismiss : text.notYet}
-            onPress={() => void dismissProposal($, text, p.id)}
-          />
-        </Box>
-      </Box>
-    ))
+      )
+      if (view.openId !== p.id) return [head]
+      return [
+        head,
+        <Box key={`pdetail-${p.id}`} paddingLeft={5}>
+          <T dimColor>{body === '' ? text.noDetails : body}</T>
+        </Box>,
+      ]
+    })
 
     return (
       <Box flexDirection="column" width={e.props.bodyColumns}>
@@ -247,6 +264,7 @@ export function drawPane(on: On, text: Text) {
         {proposalRows.length === 0 ? null : (
           <Box marginTop={1} flexDirection="column">
             {proposalRows}
+            {rule}
           </Box>
         )}
         <Box marginTop={1} flexDirection="column">
@@ -260,7 +278,7 @@ export function drawPane(on: On, text: Text) {
   })
 }
 
-// 제목을 누르면 펼치고, 다시 누르거나 다른 항목을 펼치면 접는다. 접을 때 그 항목의 수정 초안과 삭제 확인은 버린다
+// 항목·제안의 제목을 누르면 펼치고, 다시 누르거나 다른 것을 펼치면 접는다. 접을 때 그 항목의 수정 초안과 삭제 확인은 버린다
 async function toggleOpen($: EngineInterface, id: string) {
   await setView($, v =>
     v.openId === id

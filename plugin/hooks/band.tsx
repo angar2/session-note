@@ -1,6 +1,7 @@
 // 입력창 위 띠 — 열린 항목 수, 세션의 제안(하나면 그 제안과 버튼, 여럿이면 개수와 보기), 패널 열기·닫기 (spec UI.md 1절)
 import type { On } from 'claude-code'
 
+import { MARK } from './text'
 import type { Text } from './text'
 import { acceptProposal, dismissProposal, isPaneOpen, liveProposals, openItems, readNote, togglePane } from './view'
 
@@ -20,17 +21,21 @@ export function drawBand(on: On, text: Text) {
     // 제안이 하나면 그 제목과 받기·무시 버튼, 여럿이면 개수와 보기
     const only = proposals.length === 1 ? proposals[0] : undefined
     const titleOf = (itemId: string) => current.items.find(item => item.id === itemId)?.title ?? ''
+    const mark = (kind: 'new' | 'done') => <T color={MARK[kind].color}>{MARK[kind].label}</T>
+    const fresh = proposals.filter(p => p.kind === 'new').length
+    const finished = proposals.length - fresh
     const pending =
       proposals.length === 0 ? null : only === undefined ? (
-        <T dimColor>
-          {text.pending(
-            proposals.filter(p => p.kind === 'new').length,
-            proposals.filter(p => p.kind === 'done').length,
-          )}
+        <T wrap="truncate-end">
+          {fresh > 0 ? mark('new') : ''}
+          {fresh > 0 ? <T dimColor> {text.pendingNew(fresh)}</T> : ''}
+          {fresh > 0 && finished > 0 ? <T dimColor>{' · '}</T> : ''}
+          {finished > 0 ? mark('done') : ''}
+          {finished > 0 ? <T dimColor> {text.pendingDone(finished)}</T> : ''}
         </T>
       ) : (
         <T wrap="truncate-end">
-          <T dimColor>{only.kind === 'new' ? text.newLabel : text.doneLabel}</T>
+          {mark(only.kind)}
           {'  '}
           {only.kind === 'new' ? only.title : titleOf(only.itemId)}
         </T>
@@ -39,10 +44,14 @@ export function drawBand(on: On, text: Text) {
       only === undefined ? (
         toggle(proposals.length === 0 ? text.open : text.view)
       ) : (
-        <Box flexDirection="row" gap={2} flexShrink={0}>
-          <Button key={`accept-${only.id}`} plain onPress={() => void acceptProposal($, text, only.id)}>
-            <T color="claude">{only.kind === 'new' ? text.accept : text.complete}</T>
-          </Button>
+        <Box flexDirection="row" gap={1} flexShrink={0}>
+          <Button
+            key={`accept-${only.id}`}
+            plain
+            dimColor
+            label={only.kind === 'new' ? text.accept : text.complete}
+            onPress={() => void acceptProposal($, text, only.id)}
+          />
           <Button
             key={`dismiss-${only.id}`}
             plain
