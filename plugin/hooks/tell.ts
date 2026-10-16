@@ -57,6 +57,14 @@ export function wholeNote(note: Note): string {
   return `${describe(note, false)}\nDetails were left out; use the note tool's list action to read them.`
 }
 
+// /resume·--fork-session으로 불러온 세션에 전하는 글 — 열린 항목이나 답하지 않은 제안이 있으면 전체, 완료만 있으면 한 줄, 비었으면 한 줄
+export function arrival(note: Note): string {
+  if (openItems(note).length > 0 || liveProposals(note).length > 0) return wholeNote(note)
+  const done = doneItems(note).length
+  if (done > 0) return `${HEAD} No open items in this session's note (${done} done).`
+  return `${HEAD} This session's note is empty.`
+}
+
 // 세션에게 한 줄을 전한다. 사용자 화면에는 보이지 않고 모델만 읽는다. 거부되면 디버그 로그에만 남긴다(6-4 ⑦)
 export async function tell($: EngineInterface, text: string) {
   try {

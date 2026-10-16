@@ -31,7 +31,8 @@ export type View = {
   editing: (Draft & { id: string }) | null
 }
 
-export type Opened = { id: string; path: string } | null
+// overwrite: 그 자리의 파일을 읽을 수 없어 사본을 남겼다 — 다음 저장은 원본 자리에 새 노트로 쓴다
+export type Opened = { id: string; path: string; overwrite: boolean } | null
 
 declare module 'claude-code' {
   interface PluginState {

@@ -3,10 +3,10 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
 import type { Draft, Item, Note, Proposal, View } from '../types'
-import { isoAt, newId } from './note'
+import { emptyNote, isoAt, newId } from './note'
 
 export { doneItems, liveProposals, openItems } from './note'
-import { saveNote } from './store'
+import { keepCopy, loadNote, notePath, saveNote } from './store'
 import { tell, told } from './tell'
 import type { Text } from './text'
 
@@ -51,12 +51,29 @@ export async function isPaneOpen($: EngineInterface): Promise<boolean> {
   return read($, paneOpen)
 }
 
-// 세션의 노트를 화면 값으로 올리고, 패널이 지금 열려 있는지 맞춘다
-export async function showSession($: EngineInterface, opened: { id: string; path: string }, shown: Note) {
+// 세션의 노트를 화면 값으로 올리고, 패널이 지금 열려 있는지 맞춘다. 앞 세션의 초안·펼침은 버린다
+async function showSession($: EngineInterface, opened: { id: string; path: string; overwrite: boolean }, shown: Note) {
   await update($, session, () => opened)
   await update($, note, () => shown)
+  await update($, viewAtom, () => blankView())
   const panes = await $.ui.panes()
   await update($, paneOpen, () => panes.some(pane => pane.id === PANE))
+}
+
+// 세션 시작·전환 때 그 세션의 노트 파일을 연다. 읽을 수 없으면 사본을 남기고 빈 노트로 시작한다(spec DATA.md 3절)
+export async function openSession($: EngineInterface, text: Text, id: string): Promise<Note> {
+  const path = await notePath($, id)
+  const loaded = await loadNote($, path)
+  if (loaded.ok) {
+    await showSession($, { id, path, overwrite: false }, loaded.note)
+    return loaded.note
+  }
+  const copy = loaded.text === undefined ? null : await keepCopy($, path, loaded.text, isoAt(await $.clock.now()))
+  if (copy === null) $.ui.log(`could not keep a copy of ${path}: ${loaded.reason}`, { to: 'debug' })
+  else $.ui.toast(text.unreadable)
+  // 사본을 못 남겼으면 원본을 지킨다 — 저장은 실패로 둔다
+  await showSession($, { id, path, overwrite: copy !== null }, emptyNote())
+  return emptyNote()
 }
 
 // 패널이 닫혔다 — 초안을 버린다
@@ -87,8 +104,9 @@ export async function saveChange($: EngineInterface, edit: (n: Note) => Note): P
   const opened = await read($, session)
   if (opened === null) return null
   try {
-    const saved = await saveNote($, opened.path, edit)
+    const saved = await saveNote($, opened.path, edit, opened.overwrite)
     await update($, note, () => saved)
+    if (opened.overwrite) await update($, session, () => ({ ...opened, overwrite: false }))
     return saved
   } catch {
     return null
