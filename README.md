@@ -134,3 +134,7 @@ claude plugin uninstall session-note@angar2 --keep-data
 
 - Claude Code with mods (plugin function hooks). Built and tested on Claude Code 2.1.301.
 - Mods are still in early access, so behavior may change with new Claude Code versions.
+
+## License
+
+[MIT](LICENSE)

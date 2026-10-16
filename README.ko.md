@@ -134,3 +134,7 @@ claude plugin uninstall session-note@angar2 --keep-data
 
 - 모드(플러그인 함수 훅)를 지원하는 Claude Code가 필요해요. Claude Code 2.1.301에서 만들고 시험했어요.
 - 모드 기능은 아직 early access라서, Claude Code 버전이 바뀌면 동작이 달라질 수 있어요.
+
+## 라이선스
+
+[MIT](LICENSE)
