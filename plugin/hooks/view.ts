@@ -92,8 +92,10 @@ export async function openPane($: EngineInterface, title: string) {
   await update($, paneOpen, () => true)
 }
 
-export async function togglePane($: EngineInterface, title: string) {
-  if (!(await read($, paneOpen))) return openPane($, title)
+// isOpen: 띠가 그릴 때 읽은 열림 상태. 열 때는 기다림 없이 $.ui.open부터 불러야 엔진이 누름에 대한 열기로
+// 보고 폭과 상관없이 배치한다 — 기다린 뒤 열면 좁은 터미널(110칸 미만)에서 그리지 않는다 (spec UI.md 2절)
+export async function togglePane($: EngineInterface, title: string, isOpen: boolean) {
+  if (!isOpen) return openPane($, title)
   // 자기 $.ui.close에는 자기 ui.close 훅이 돌지 않을 수 있어 여기서도 닫힘을 기록한다
   await $.ui.close({ id: PANE })
   await paneClosed($)
