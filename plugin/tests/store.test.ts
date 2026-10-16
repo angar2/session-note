@@ -56,7 +56,12 @@ test('a broken file or an unknown version is reported, not overwritten', async (
   await expect(saveNote(broken.$, PATH, note => note)).rejects.toThrow()
   expect(broken.files.get(PATH)).toBe('{ not json')
   const future = fakeEngine({ files: { [PATH]: JSON.stringify({ version: 2, items: [], proposals: [] }) } })
-  expect(await loadNote(future.$, PATH)).toEqual({ ok: false, path: PATH, reason: 'unknown version 2' })
+  expect(await loadNote(future.$, PATH)).toEqual({
+    ok: false,
+    path: PATH,
+    reason: 'unknown version 2',
+    text: JSON.stringify({ version: 2, items: [], proposals: [] }),
+  })
 })
 
 test('a failed write reaches the caller', async () => {

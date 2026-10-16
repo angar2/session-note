@@ -33,6 +33,7 @@ const TEXT = {
       [fresh > 0 ? `${fresh} new` : '', finished > 0 ? `${finished} done` : ''].filter(Boolean).join(' · '),
     command: 'Open the notes pane',
     saveFailed: "Couldn't save the note",
+    unreadable: "Couldn't read the saved note; kept a copy",
   },
   ko: {
     notes: '노트',
@@ -64,6 +65,7 @@ const TEXT = {
       [fresh > 0 ? `새 항목 ${fresh}` : '', finished > 0 ? `끝난 항목 ${finished}` : ''].filter(Boolean).join(' · '),
     command: '노트 패널을 열어요',
     saveFailed: '노트를 저장하지 못했어요',
+    unreadable: '저장된 노트를 읽지 못해 사본을 남겼어요',
   },
 }
 
