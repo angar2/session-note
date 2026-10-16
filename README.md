@@ -1,98 +1,136 @@
 # session-note
 
-A note for each Claude Code session: you and the agent jot down what to do or check, and tick it off together.
+**A mod plugin for Claude Code** — gives every session a note where you and the agent jot down what to do or check, and tick it off together.
 
 [한국어](README.ko.md)
 
-Long sessions bury things. "Let's check that later", "is this right?", a follow-up you meant to do — they scroll away and are gone. session-note keeps a small to-do note next to the prompt for every session. You can write in it, the agent can propose items for it, and both of you can mark them done.
+![The agent proposes a postponed task for the note and proposes completing it once done; items are then added and completed in the pane](docs/demo-en.gif)
 
-```
- Notes 2  │  New  Check token expiry handling                          Add   Dismiss
-❯ _
-```
+## Overview
 
-## What you see
+session-note is a **mod plugin** for Claude Code. Mods let a plugin draw its own parts right inside the Claude Code screen, so the note is not a separate window: it sits just above the prompt and in a pane beside the terminal.
 
-- **The band** — one line above the prompt. `Notes 2` is the number of open items. `Open` opens the side pane.
-  When the agent proposes something, the band shows it with buttons:
+Work with an agent for a while and you will hear yourself say things like:
 
-  | The agent proposes | The band shows |
-  |---|---|
-  | a new item | `New  <title>   Add  Dismiss` |
-  | that an open item is done | `Done  <title>   Complete  Not yet` |
-  | several things | `2 new · 1 done   View` (opens the pane) |
+- "Let's skip that for now and come back to it."
+- "I should double-check that this is right."
+- "Once this is done, let's run the tests too."
 
-- **The pane** — on the right side of the terminal (above the prompt in a narrow window). From the top: waiting proposals, open items, `+ New item`, and the done group (`Done N ▸`, the five most recent, then `[Show more (N)]`).
-  - Click `☐` to complete an item, `☑` to bring it back.
-  - Click a title to expand it: its details, when it was added, `[Edit]` and `[Delete]` (delete asks once more).
-  - Items you wrote yourself are marked with `☺`.
-- **`/note`** — opens the pane without leaving a line in the conversation.
+In the moment you are sure you will remember. But as the conversation grows, these lines scroll away and are gone, and the agent will not bring them back up unless you do. That is how the things you put off quietly get forgotten.
 
-Everything is done with the mouse; the keyboard is only for typing a title and details (Enter saves).
+session-note gives every session a small note. Put the things you postponed and the things to check in it, and tick them off when they are done. The note always sits right above the prompt, and the agent reads the same note and keeps track with you.
 
-## How the agent uses it
+## Features
 
-The agent gets one tool, `note`, and follows fixed rules written in the tool's description:
+- **Open items stay in sight.** The number of open items is always shown above the prompt, so you take one more look before you close the session.
+- **The agent proposes items.** When "let's do that later" comes up, the agent proposes adding it to the note. You just press a button.
+- **The agent tells you what is finished.** When it wraps up a piece of work, the agent goes over the note and proposes completing the items that look done.
+- **You always decide.** The agent only proposes. It never changes the note until you press a button or tell it to.
+- **The session stays light.** The note is not sent to the agent with every reply. Only what changed is passed along, briefly, when it changes.
 
-- **It proposes, it does not decide.** Only things the conversation put off for later and questions left open become proposals. Work it is doing right now, details it may decide itself and the steps of its own plan do not. It never asks "shall I add this to the note?" — the proposal just waits on the band until you add or dismiss it.
-- **It checks when work is finished.** After finishing a piece of work, or when you say "check the note", it compares open items with what was done and proposes the finished ones as done. It never completes an item unless you tell it to.
-- **When you tell it, it acts.** "Put this in the note" adds an item, "that one is done" completes it.
-- **It always knows the latest note.** When you change something in the pane, only that change is passed to the agent (you do not see it). After the conversation is compacted, and when you come back with `/resume`, the whole note is passed once. Nothing is added to every turn, so the note does not make the session heavier.
+## Installation
 
-## Install
-
-Inside Claude Code:
+Type these two lines inside Claude Code:
 
 ```
 /plugin marketplace add angar2/session-note
 /plugin install session-note@angar2
 ```
 
-Or from a shell:
+- The first line registers this repository as a place to get plugins from.
+- The second line installs the plugin. Every session you open from then on gets a note.
 
-```sh
-claude plugin marketplace add angar2/session-note
-claude plugin install session-note@angar2
+## Usage
+
+### Accepting proposals
+
+Say "let's check token expiry handling later" during the conversation, and the agent puts a proposal on the line above the prompt (the **band**).
+
+```
+ Notes 2  │  [+]  Check token expiry handling                    [Add] [Dismiss]
 ```
 
-The first command registers this repository as a plugin source; the second installs the plugin for your user, in every session.
+- The blue `[+]` means "add this as a new item?"
+- Press `[Add]` to put it in the note, or `[Dismiss]` if you don't need it.
+- The proposal stays on the band until you answer it, so you can finish what you were saying first.
 
-The screen language is **English** (default) or **한국어**. `/plugin install` asks for it; from a shell, add `--config language=한국어` for Korean. Change it any time with `/plugin configure session-note@angar2`; the note keeps its items.
+### Completing items
 
-The band has no background by default. To make it stand out, set **Band background** in `/plugin configure session-note@angar2` to `Gray`, `Olive` or `Wine` (`None` turns it off). The colors follow your terminal theme.
+When that work is finished, the agent checks it against the note and proposes completing it.
 
-## The note follows the session
+```
+ Notes 2  │  [✓]  Check token expiry handling              [Complete] [Not yet]
+```
 
-- Every session has its own note. `/clear` starts a new session, so you get a new, empty note; the old one stays with the old session.
-- `/resume` brings back that session together with its note.
-- `--fork-session` continues the conversation as a new session with an empty note, and tells the agent so.
+- The green `[✓]` means "this item looks done."
+- Press `[Complete]` if it is, or `[Not yet]` if something is left.
+- When several proposals pile up, the band shows only the counts, like `[+] 2 new · [✓] 1 done`. Press `View` to answer them one by one in the pane.
 
-## Where the notes are stored
+### Managing the note in the pane
 
-One JSON file per session:
+Press `Open` at the right end of the band, or type `/note`, and the **pane** opens on the right side of the terminal. In a narrow window it opens above the prompt.
+
+- From the top: proposals waiting for an answer, open items, `+ New item`, and the done items.
+- To add an item yourself, press `+ New item`, write a title and details, and press `[Add]`. Items you wrote are marked with `☺`.
+- To complete an item, press its `☐`. Press `☑` on a done item to open it again.
+- Press a title to expand it: its details, when it was added, and `[Edit]` `[Delete]`.
+
+Everything is done with the mouse. The keyboard is only for typing titles and details.
+
+### Managing the note in conversation
+
+Ask the agent, and it does it right away, without a proposal.
+
+| Say | The agent |
+|---|---|
+| "Put this in the note" | adds an item |
+| "That one is done" | completes the item |
+| "Rename that item" | edits the item |
+| "Delete that one" | deletes the item |
+| "Check the note" | goes over the open items and proposes completing the finished ones |
+
+The agent never edits or deletes items unless you tell it to.
+
+## Configuration
+
+Change these any time with `/plugin configure session-note@angar2`. Your notes keep their items.
+
+| Setting | Values | Default | Description |
+|---|---|---|---|
+| Language | English · 한국어 | English | The language of the band and the pane |
+| Band background | None · Gray · Olive · Wine | None | The background color of the band. Pick one if you want the band to stand out |
+
+The colors follow your terminal theme.
+
+## Sessions and storage
+
+### Notes per session
+
+- Each session has its own note.
+- `/clear` starts a new session, so you start with an empty note. The old note stays with the old session.
+- When you reopen a session with `/resume`, its note comes back with it.
+
+### Storage location
+
+Each session's note is one JSON file:
 
 ```
 ~/.claude/plugins/data/session-note-angar2/sessions/<session id>.json
 ```
 
-A file is only created once a session gets its first item or proposal. Notes of past sessions are kept.
-
-**Uninstalling deletes the notes.** `claude plugin uninstall session-note@angar2` removes this folder too. To keep it:
+**Uninstalling the plugin deletes the notes too.** To keep them, add `--keep-data` when you uninstall:
 
 ```sh
 claude plugin uninstall session-note@angar2 --keep-data
 ```
 
-If a note file cannot be read (broken JSON, or written by a newer version), it is left alone: a copy named `<session id>.unreadable-<time>.json` is kept next to it and the session starts with an empty note.
+## Limitations
 
-## Limits
-
-- **Organization-managed Claude Code**: where an organization manages Claude Code, session-start events do not reach plugins you install yourself. There the note does not switch on `/clear` or `/resume` and is not passed again after a compaction.
-- **`/rewind`**: rewinding the conversation removes the changes that were passed to the agent after that point, and plugins get no signal about it. The note itself is not rewound; the agent can read it again with the `note` tool.
-- **One session in two places**: opening the same session in two terminals at once is not supported; the later save wins.
-- **Hover**: buttons are highlighted under the mouse only in terminals that report mouse movement.
+- **Organization-managed Claude Code** does not send session-start events to plugins you install yourself. There, the note does not switch on `/clear` or `/resume`.
+- **`/rewind`** rewinds the conversation but not the note. The agent can read the note again to get the latest state.
+- **If you open the same session in two terminals at once**, only the one that saves last is kept.
 
 ## Requirements
 
-- Claude Code with plugin function hooks (mods). Built and tested on Claude Code **2.1.301**. The mods API is early access and may change between releases.
-- Made for the terminal; the full-screen layout shows the pane on the right. The desktop app is covered only by Claude Code's plugin tests, not by hand.
+- Claude Code with mods (plugin function hooks). Built and tested on Claude Code 2.1.301.
+- Mods are still in early access, so behavior may change with new Claude Code versions.
