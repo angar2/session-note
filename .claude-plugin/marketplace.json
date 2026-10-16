@@ -1,0 +1,6 @@
+{
+  "name": "angar2",
+  "owner": { "name": "angar2" },
+  "description": "Claude Code plugins by angar2",
+  "plugins": [{ "name": "session-note", "source": "./plugin" }]
+}
