@@ -16,7 +16,12 @@ export function drawBand(on: On, text: Text, background?: string) {
     const isEmpty = count === 0 && proposals.length === 0
     const isOpen = await isPaneOpen($)
     const toggle = (label: string) => (
-      <Button key="toggle" plain label={isOpen ? text.close : label} onPress={() => void togglePane($, text.notes)} />
+      <Button
+        key="toggle"
+        plain
+        label={isOpen ? text.close : label}
+        onPress={() => void togglePane($, text.notes, isOpen)}
+      />
     )
 
     // 제안이 하나면 그 제목과 받기·무시 버튼, 여럿이면 개수와 보기
