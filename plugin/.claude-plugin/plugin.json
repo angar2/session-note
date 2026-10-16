@@ -1,0 +1,6 @@
+{
+  "name": "session-note",
+  "version": "0.1.0",
+  "description": "A note for each Claude Code session: you and the agent jot down what to do or check, and tick it off together.",
+  "author": { "name": "angar2" }
+}
