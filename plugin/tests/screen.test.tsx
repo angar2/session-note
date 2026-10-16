@@ -163,6 +163,30 @@ for (const surface of SURFACES) {
   )
 }
 
+// 띠 배경 설정 값 → 띠 줄 전체를 칠하는 테마 키 (spec UI.md 1절)
+const BACKGROUNDS = [
+  [undefined, undefined],
+  ['None', undefined],
+  ['Gray', 'subtle'],
+  ['Olive', 'diffAddedDimmed'],
+  ['Wine', 'diffRemovedDimmed'],
+  ['Purple', undefined],
+] as const
+
+for (const [setting, key] of BACKGROUNDS) {
+  test(
+    `the band background setting ${setting ?? '(unset)'} paints the band ${key ?? 'with nothing'}`,
+    { options: setting === undefined ? {} : { bandBackground: setting } },
+    async ($, on) => {
+      await start($, on)
+      const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
+      const [whole] = await band.findAll({ type: 'Box' })
+      expect(whole?.props['backgroundColor']).toBe(key)
+      expect(whole?.text).toContain('Notes 0')
+    },
+  )
+}
+
 test('/note opens the pane and leaves no line in the conversation', async ($, on) => {
   const world = await start($, on)
   const ran = await $.command.run({

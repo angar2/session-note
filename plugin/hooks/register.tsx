@@ -4,7 +4,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import { drawBand } from './band'
 import { drawPane } from './pane'
 import { arrival, wholeNote } from './tell'
-import { langOf, textOf, type Text } from './text'
+import { backgroundOf, langOf, textOf, type Text } from './text'
 import { registerTool, serveTool } from './tool'
 import { PANE, openPane, openSession, paneClosed, readNote } from './view'
 
@@ -42,7 +42,7 @@ export const register: Register = (on, options) => {
   })
 
   serveTool(on)
-  drawBand(on, text)
+  drawBand(on, text, backgroundOf(options.bandBackground))
   drawPane(on, text)
 }
 
