@@ -1,11 +1,11 @@
 // 입력창 위 띠 — 열린 항목 수, 세션의 제안(하나면 그 제안과 버튼, 여럿이면 개수와 보기), 패널 열기·닫기 (spec UI.md 1절)
 import type { On } from 'claude-code'
 
-import { MARK } from './text'
+import { MARK, buttonLook } from './text'
 import type { Text } from './text'
 import { acceptProposal, dismissProposal, isPaneOpen, liveProposals, openItems, readNote, togglePane } from './view'
 
-// background: 설정에서 고른 띠 배경 테마 키(없으면 배경 없음)
+// background: 설정에서 고른 띠 배경 테마 키(없으면 배경 없음). 터미널에서만 칠한다
 export function drawBand(on: On, text: Text, background?: string) {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
@@ -53,24 +53,26 @@ export function drawBand(on: On, text: Text, background?: string) {
         <Box flexDirection="row" gap={1} flexShrink={0}>
           <Button
             key={`accept-${only.id}`}
-            plain
-            dimColor
-            label={only.kind === 'new' ? text.accept : text.complete}
+            {...buttonLook(e.surface, only.kind === 'new' ? text.accept : text.complete)}
             onPress={() => void acceptProposal($, text, only.id)}
           />
           <Button
             key={`dismiss-${only.id}`}
-            plain
             dimColor
-            label={only.kind === 'new' ? text.dismiss : text.notYet}
+            {...buttonLook(e.surface, only.kind === 'new' ? text.dismiss : text.notYet)}
             onPress={() => void dismissProposal($, text, only.id)}
           />
         </Box>
       )
 
     return (
-      <Box flexDirection="row" justifyContent="space-between" width={e.props.bodyColumns} backgroundColor={background}>
-        <Box flexDirection="row" flexShrink={1}>
+      <Box
+        flexDirection="row"
+        justifyContent="space-between"
+        width={e.props.bodyColumns}
+        backgroundColor={e.surface === 'terminal' ? background : undefined}
+      >
+        <Box flexDirection="row" flexShrink={1} minWidth={0}>
           <Box key="count" flexShrink={0}>
             {isEmpty ? (
               <T dimColor>{text.notes} 0</T>
@@ -81,7 +83,7 @@ export function drawBand(on: On, text: Text, background?: string) {
             )}
           </Box>
           {pending === null ? null : (
-            <Box key="pending" flexShrink={1}>
+            <Box key="pending" flexShrink={1} minWidth={0}>
               <T dimColor>{'  │  '}</T>
               {pending}
             </Box>

@@ -26,9 +26,9 @@ for (const surface of SURFACES) {
     expect(await pane.find({ type: 'Text', text: 'No open items' })).toBeDefined()
 
     await pane.press({ key: 'add' })
-    // [추가] [취소]는 그 줄 오른쪽 끝에 있다
+    // 추가·취소 버튼은 그 줄 오른쪽 끝에 있다
     const buttons = (await pane.findAll({ type: 'Box' })).find(box => box.props['justifyContent'] === 'flex-end')
-    expect(buttons?.text).toBe('[Add][Cancel]')
+    expect(buttons?.text).toBe(surface === 'terminal' ? '[Add][Cancel]' : 'AddCancel')
     await pane.input({ key: 'add-title', text: 'Check token expiry', kind: 'change' })
     await pane.input({ key: 'add-body', text: 'A 500 right after expiry', kind: 'change' })
     await pane.press({ key: 'add-ok' })
@@ -73,6 +73,11 @@ for (const surface of SURFACES) {
     expect(await pane.find({ type: 'Text', text: '2026-10-16 14:05' })).toBeDefined()
 
     await pane.press({ key: 'edit-a' })
+    // 저장·취소 버튼은 그 줄 오른쪽 끝에 있다
+    const editButtons = (await pane.findAll({ type: 'Box' })).find(
+      box => box.props['justifyContent'] === 'flex-end' && box.text.includes('Save'),
+    )
+    expect(editButtons?.text).toBe(surface === 'terminal' ? '[Save][Cancel]' : 'SaveCancel')
     await pane.input({ key: 'edit-title', text: '', kind: 'change' })
     await pane.input({ key: 'edit-body', text: 'Fixed with URL origin check' })
     expect(saved(world).items[0]).toMatchObject({ title: 'Check the redirect', body: 'Fixed with URL origin check' })
@@ -142,6 +147,15 @@ for (const surface of SURFACES) {
     expect(saved(world).items).toHaveLength(1)
   })
 
+  test(`the pane title is drawn in the body only on the terminal, where the engine draws none (${surface})`, async ($, on) => {
+    await start($, on)
+    const pane = await $.ui.mount({ plugin: 'session-note', surface, ...PANE })
+    const title = (await pane.findAll({ type: 'Text' })).find(one => one.text === 'Notes')
+    if (surface === 'terminal') expect(title?.props['bold']).toBe(true)
+    else expect(title).toBeUndefined()
+    expect(await pane.find({ type: 'Text', text: 'No open items' })).toBeDefined()
+  })
+
   test(
     `Korean is drawn when it is the chosen language (${surface})`,
     { options: { language: '한국어' } },
@@ -157,8 +171,8 @@ for (const surface of SURFACES) {
       const pane = await $.ui.mount({ plugin: 'session-note', surface, ...PANE })
       expect((await pane.find({ key: 'add' }))?.text).toContain('+ 새 항목')
       await pane.press({ key: 'title-a' })
-      expect((await pane.find({ key: 'edit-a' }))?.text).toContain('[수정]')
-      expect(await pane.find({ type: 'Text', text: '내용 없음' })).toBeDefined()
+      expect((await pane.find({ key: 'edit-a' }))?.text).toBe(surface === 'terminal' ? '[수정]' : '수정')
+      expect(await pane.find({ type: 'Text', text: '(내용 없음)' })).toBeDefined()
     },
   )
 }
@@ -175,7 +189,7 @@ const BACKGROUNDS = [
 
 for (const [setting, key] of BACKGROUNDS) {
   test(
-    `the band background setting ${setting ?? '(unset)'} paints the band ${key ?? 'with nothing'}`,
+    `the band background setting ${setting ?? '(unset)'} paints the terminal band ${key ?? 'with nothing'} and never the desktop band`,
     { options: setting === undefined ? {} : { bandBackground: setting } },
     async ($, on) => {
       await start($, on)
@@ -183,6 +197,11 @@ for (const [setting, key] of BACKGROUNDS) {
       const [whole] = await band.findAll({ type: 'Box' })
       expect(whole?.props['backgroundColor']).toBe(key)
       expect(whole?.text).toContain('Notes 0')
+      // 데스크톱은 어떤 설정이든 칠하지 않는다
+      const desktop = await $.ui.mount({ plugin: 'session-note', surface: 'desktop', ...BAND })
+      const [plain] = await desktop.findAll({ type: 'Box' })
+      expect(plain?.props['backgroundColor']).toBeUndefined()
+      expect(plain?.text).toContain('Notes 0')
     },
   )
 }
