@@ -1,6 +1,6 @@
 {
   "name": "session-note",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A mod plugin for Claude Code — gives every session a note where you and the agent jot down what to do or check, and tick it off together.",
   "author": { "name": "angar2" },
   "homepage": "https://github.com/angar2/session-note",
