@@ -29,6 +29,8 @@ export type View = {
   showAll: boolean
   adding: Draft | null
   editing: (Draft & { id: string }) | null
+  // 수정 칸 key에 붙는 값. 엔진은 칸의 Enter 뒤 칸 글자를 비우고, 같은 key에 같은 value를 다시 그리면 비운 글자를 둔다 — 수정을 저장할 때마다 바꿔 다시 연 칸을 새 칸으로 그린다
+  editKey: string
 }
 
 // overwrite: 그 자리의 파일을 읽을 수 없어 사본을 남겼다 — 다음 저장은 원본 자리에 새 노트로 쓴다

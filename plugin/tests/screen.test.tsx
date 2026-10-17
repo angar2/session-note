@@ -1,7 +1,7 @@
 // 띠·패널의 글자와 버튼 동작을 terminal·desktop 두 화면에서 확인한다 (spec UI.md 1~5절) — 화면마다 새 세션으로 돈다
 import { expect, test } from 'claude-code/testing'
 
-import { BAND, PANE, PATH, item, keyOf, saved, start } from './world'
+import { BAND, PANE, PATH, fieldKey, item, keyOf, saved, start } from './world'
 
 const SURFACES = ['terminal', 'desktop'] as const
 
@@ -73,15 +73,23 @@ for (const surface of SURFACES) {
     expect(await pane.find({ type: 'Text', text: '2026-10-16 14:05' })).toBeDefined()
 
     await pane.press({ key: 'edit-a' })
+    // 수정에 들어가면 패널이 키보드를 달라고 다시 열린다(커서를 제목 칸으로 옮기려고)
+    expect(world.focusOpened).toEqual(['session-note'])
     // 저장·취소 버튼은 그 줄 오른쪽 끝에 있다
     const editButtons = (await pane.findAll({ type: 'Box' })).find(
       box => box.props['justifyContent'] === 'flex-end' && box.text.includes('Save'),
     )
     expect(editButtons?.text).toBe(surface === 'terminal' ? '[Save][Cancel]' : 'SaveCancel')
-    await pane.input({ key: 'edit-title', text: '', kind: 'change' })
-    await pane.input({ key: 'edit-body', text: 'Fixed with URL origin check' })
+    const bodyKey = await fieldKey(pane, 'edit-body')
+    await pane.input({ key: await fieldKey(pane, 'edit-title'), text: '', kind: 'change' })
+    await pane.input({ key: bodyKey, text: 'Fixed with URL origin check' })
     expect(saved(world).items[0]).toMatchObject({ title: 'Check the redirect', body: 'Fixed with URL origin check' })
-    expect(await pane.find({ key: 'edit-title' })).toBeUndefined()
+    expect(await pane.find({ type: 'Input' })).toBeUndefined()
+    // Enter로 저장한 뒤 다시 연 수정 칸은 새 칸이다 — 엔진이 비운 글자를 두지 않고 저장된 값을 그린다
+    await pane.press({ key: 'edit-a' })
+    const reopened = await pane.find({ key: await fieldKey(pane, 'edit-body') })
+    expect([reopened?.key === bodyKey, reopened?.props['value']]).toEqual([false, 'Fixed with URL origin check'])
+    await pane.press({ key: 'edit-cancel' })
 
     await pane.press({ key: 'delete-a' })
     await pane.press({ key: 'delete-cancel' })
