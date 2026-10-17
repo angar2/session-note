@@ -2,7 +2,7 @@
 import type { Engine } from 'claude-code/testing'
 import { expect, test } from 'claude-code/testing'
 
-import { BAND, PANE, TOOL, item, keyOf, saved, start } from './world'
+import { BAND, PANE, TOOL, fieldKey, item, keyOf, saved, start } from './world'
 
 const SURFACES = ['terminal', 'desktop'] as const
 
@@ -191,7 +191,7 @@ test('what the user changes in the pane is told to the session, one line each', 
   const ref = id.slice(0, 8)
   await pane.press({ key: `title-${id}` })
   await pane.press({ key: `edit-${id}` })
-  await pane.input({ key: 'edit-body', text: 'A 500 right after expiry' })
+  await pane.input({ key: await fieldKey(pane, 'edit-body'), text: 'A 500 right after expiry' })
   await pane.press({ key: `check-${id}` })
   await pane.press({ key: 'done-group' })
   await pane.press({ key: `check-${id}` })

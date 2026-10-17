@@ -10,6 +10,7 @@ import {
   addItem,
   dismissProposal,
   doneItems,
+  editFieldKey,
   liveProposals,
   readNote,
   openItems,
@@ -17,6 +18,7 @@ import {
   removeItem,
   saveEdit,
   setView,
+  startEdit,
   toggleDone,
   type Draft,
 } from './view'
@@ -49,7 +51,7 @@ export function drawPane(on: On, text: Text) {
         ? []
         : (['title', 'body'] as const).map(field => (
             <Input
-              key={`${kind}-${field}`}
+              key={kind === 'add' ? `add-${field}` : editFieldKey(field, view.editKey)}
               placeholder={field === 'title' ? text.title : text.details}
               value={draft[field]}
               submitLabel={kind === 'add' ? text.submitAdd : text.submitSave}
@@ -138,14 +140,7 @@ export function drawPane(on: On, text: Text) {
                 key={`edit-${item.id}`}
                 dimColor
                 {...buttonLook(e.surface, text.edit)}
-                onPress={() =>
-                  void setView($, v => ({
-                    ...v,
-                    adding: null,
-                    armedId: null,
-                    editing: { id: item.id, title: item.title, body: item.body },
-                  }))
-                }
+                onPress={() => void startEdit($, text.notes, item)}
               />
             )}
             <Button
