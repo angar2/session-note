@@ -18,7 +18,7 @@
     "bandBackground": {
       "type": "string",
       "title": "Band background",
-      "description": "Background color of the notes band above the prompt",
+      "description": "Background color of the notes band above the prompt (terminal only)",
       "options": ["None", "Gray", "Olive", "Wine"],
       "default": "None"
     }
