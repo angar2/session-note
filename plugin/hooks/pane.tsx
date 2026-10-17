@@ -11,6 +11,7 @@ import {
   dismissProposal,
   doneItems,
   editFieldKey,
+  focusAfter,
   liveProposals,
   readNote,
   openItems,
@@ -44,6 +45,19 @@ export function drawPane(on: On, text: Text) {
         <T dimColor>{'─'.repeat(Math.max(1, e.props.bodyColumns) * 4)}</T>
       </Box>
     )
+    // 누른 버튼이 사라지는 동작은 끝난 뒤 커서를 남는 버튼(key)으로 옮긴다(view.ts focusAfter)
+    const stay = (key: string, action: Promise<unknown>) => void focusAfter($, PANE, key, action)
+    const addKey = view.adding === null ? 'add' : 'add-cancel'
+    // 같은 목록에서 바로 아래(없으면 위)의 제목 버튼, 그것도 없으면 fallback
+    const nearTitle = (list: { id: string }[], id: string, prefix: string, fallback: string) => {
+      const at = list.findIndex(one => one.id === id)
+      const other = list[at + 1] ?? list[at - 1]
+      return other === undefined ? fallback : `${prefix}${other.id}`
+    }
+    const itemNear = (item: Item) =>
+      item.status === 'done'
+        ? nearTitle(shownDone, item.id, 'title-', 'done-group')
+        : nearTitle(open, item.id, 'title-', addKey)
 
     // 새 항목·수정의 제목·내용 칸. 친 글은 그 칸 값만 상태에 쓰고, Enter는 상태의 초안 전체로 저장한다
     const fields = (kind: 'add' | 'edit', draft: Draft) =>
@@ -57,8 +71,11 @@ export function drawPane(on: On, text: Text) {
               submitLabel={kind === 'add' ? text.submitAdd : text.submitSave}
               onInput={(value: string) => void setDraft($, kind, field, value)}
               onSubmit={(value: string) =>
-                void setDraft($, kind, field, value).then(() =>
-                  kind === 'add' ? addFromView($, text) : saveFromView($, text),
+                stay(
+                  kind === 'add' ? 'add' : `title-${view.editing?.id}`,
+                  setDraft($, kind, field, value).then(() =>
+                    kind === 'add' ? addFromView($, text) : saveFromView($, text),
+                  ),
                 )
               }
             />
@@ -74,7 +91,7 @@ export function drawPane(on: On, text: Text) {
           plain
           dimColor
           label={isDone ? '☑' : '☐'}
-          onPress={() => void toggleDone($, text, item.id)}
+          onPress={() => stay(itemNear(item), toggleDone($, text, item.id))}
         />
       )
       // 체크 칸 옆 세로 묶음 — 제목·내용·입력 칸·버튼을 제목 시작 위치에 맞춘다
@@ -96,13 +113,13 @@ export function drawPane(on: On, text: Text) {
               <Button
                 key="edit-ok"
                 {...buttonLook(e.surface, text.saveOk)}
-                onPress={() => void saveFromView($, text)}
+                onPress={() => stay(`title-${item.id}`, saveFromView($, text))}
               />
               <Button
                 key="edit-cancel"
                 dimColor
                 {...buttonLook(e.surface, text.cancel)}
-                onPress={() => void setView($, v => ({ ...v, editing: null }))}
+                onPress={() => stay(`title-${item.id}`, setView($, v => ({ ...v, editing: null })))}
               />
             </Box>,
           ),
@@ -124,13 +141,13 @@ export function drawPane(on: On, text: Text) {
             <Button
               key={`delete-ok-${item.id}`}
               {...buttonLook(e.surface, text.delOk)}
-              onPress={() => void removeItem($, text, item.id)}
+              onPress={() => stay(itemNear(item), removeItem($, text, item.id))}
             />
             <Button
               key="delete-cancel"
               dimColor
               {...buttonLook(e.surface, text.cancel)}
-              onPress={() => void setView($, v => ({ ...v, armedId: null }))}
+              onPress={() => stay(`delete-${item.id}`, setView($, v => ({ ...v, armedId: null })))}
             />
           </Box>
         ) : (
@@ -147,7 +164,7 @@ export function drawPane(on: On, text: Text) {
               key={`delete-${item.id}`}
               dimColor
               {...buttonLook(e.surface, text.del)}
-              onPress={() => void setView($, v => ({ ...v, armedId: item.id }))}
+              onPress={() => stay('delete-cancel', setView($, v => ({ ...v, armedId: item.id })))}
             />
           </Box>
         )
@@ -177,7 +194,10 @@ export function drawPane(on: On, text: Text) {
                 dimColor
                 label={text.newItem}
                 onPress={() =>
-                  void setView($, v => ({ ...v, editing: null, armedId: null, adding: { title: '', body: '' } }))
+                  stay(
+                    'add-cancel',
+                    setView($, v => ({ ...v, editing: null, armedId: null, adding: { title: '', body: '' } })),
+                  )
                 }
               />,
             ]
@@ -187,13 +207,13 @@ export function drawPane(on: On, text: Text) {
                 <Button
                   key="add-ok"
                   {...buttonLook(e.surface, text.addOk)}
-                  onPress={() => void addFromView($, text)}
+                  onPress={() => stay('add', addFromView($, text))}
                 />
                 <Button
                   key="add-cancel"
                   dimColor
                   {...buttonLook(e.surface, text.cancel)}
-                  onPress={() => void setView($, v => ({ ...v, adding: null }))}
+                  onPress={() => stay('add', setView($, v => ({ ...v, adding: null })))}
                 />
               </Box>,
             ]
@@ -220,7 +240,7 @@ export function drawPane(on: On, text: Text) {
                       key="more"
                       dimColor
                       {...buttonLook(e.surface, text.more(done.length - SHOWN_DONE))}
-                      onPress={() => void setView($, v => ({ ...v, showAll: true }))}
+                      onPress={() => stay(`title-${done[SHOWN_DONE]?.id}`, setView($, v => ({ ...v, showAll: true })))}
                     />
                   </Box>,
                 ]
@@ -228,7 +248,10 @@ export function drawPane(on: On, text: Text) {
           ]
 
     // 맨 위의 제안 — 띠와 같은 표시와 버튼으로 하나씩. 제목을 누르면 내용(완료 제안은 그 항목의 내용)을 펼친다
-    const proposalRows = liveProposals(current).flatMap(p => {
+    const proposals = liveProposals(current)
+    const proposalNear = (id: string) =>
+      nearTitle(proposals, id, 'ptitle-', open[0] === undefined ? addKey : `title-${open[0].id}`)
+    const proposalRows = proposals.flatMap(p => {
       const target = p.kind === 'done' ? current.items.find(item => item.id === p.itemId) : undefined
       const body = p.kind === 'new' ? p.body : (target?.body ?? '')
       const detail = view.openId === p.id ? (
@@ -261,13 +284,13 @@ export function drawPane(on: On, text: Text) {
             <Button
               key={`accept-${p.id}`}
               {...buttonLook(e.surface, p.kind === 'new' ? text.accept : text.complete)}
-              onPress={() => void acceptProposal($, text, p.id)}
+              onPress={() => stay(proposalNear(p.id), acceptProposal($, text, p.id))}
             />
             <Button
               key={`dismiss-${p.id}`}
               dimColor
               {...buttonLook(e.surface, p.kind === 'new' ? text.dismiss : text.notYet)}
-              onPress={() => void dismissProposal($, text, p.id)}
+              onPress={() => stay(proposalNear(p.id), dismissProposal($, text, p.id))}
             />
           </Box>
         </Box>,
