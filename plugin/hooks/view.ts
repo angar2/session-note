@@ -112,6 +112,13 @@ export async function startEdit($: EngineInterface, title: string, item: Item) {
   await $.ui.focus({ requestId: PANE, key: editFieldKey('title', editKey) }).catch(() => undefined)
 }
 
+// 데스크톱 앱은 누른 버튼이 누른 결과로 사라지면 다음 첫 클릭에 반응하지 않는다(TASK-014). 동작이 끝나면 커서를
+// 그 화면(site: 패널 id 또는 띠의 requestId)에 남는 버튼(key)으로 옮긴다 — 덤이라, 거절되거나 실패해도 그대로 둔다
+export async function focusAfter($: EngineInterface, site: string, key: string, action: Promise<unknown>) {
+  await action
+  await $.ui.focus({ requestId: site, key }).catch(() => undefined)
+}
+
 // isOpen: 띠가 그릴 때 읽은 열림 상태. 열 때는 기다림 없이 $.ui.open부터 불러야 엔진이 누름에 대한 열기로
 // 보고 폭과 상관없이 배치한다 — 기다린 뒤 열면 좁은 터미널(110칸 미만)에서 그리지 않는다 (spec UI.md 2절)
 export async function togglePane($: EngineInterface, title: string, isOpen: boolean) {
