@@ -1,8 +1,8 @@
 // 오른쪽 노트 패널 — 세션의 제안·열린 항목·새 항목·완료 묶음과 펼침·수정·삭제 (spec UI.md 2·3절)
-import type { EngineInterface, On } from 'claude-code'
+import type { EngineInterface, On, RenderChildren } from 'claude-code'
 
 import type { Item } from './note'
-import { MARK } from './text'
+import { MARK, buttonLook } from './text'
 import type { Text } from './text'
 import {
   PANE,
@@ -10,6 +10,8 @@ import {
   addItem,
   dismissProposal,
   doneItems,
+  editFieldKey,
+  focusAfter,
   liveProposals,
   readNote,
   openItems,
@@ -17,6 +19,7 @@ import {
   removeItem,
   saveEdit,
   setView,
+  startEdit,
   toggleDone,
   type Draft,
 } from './view'
@@ -36,7 +39,25 @@ export function drawPane(on: On, text: Text) {
     const view = await readView($)
     const open = openItems(current)
     const done = doneItems(current)
-    const rule = <T dimColor>{'─'.repeat(Math.max(1, e.props.bodyColumns))}</T>
+    // 구분선 — 넉넉히 그리고 한 줄로 잘라 데스크톱에서도 패널 끝까지 닿게 한다
+    const rule = (
+      <Box height={1} overflow="hidden">
+        <T dimColor>{'─'.repeat(Math.max(1, e.props.bodyColumns) * 4)}</T>
+      </Box>
+    )
+    // 누른 버튼이 사라지는 동작은 끝난 뒤 커서를 남는 버튼(key)으로 옮긴다(view.ts focusAfter)
+    const stay = (key: string, action: Promise<unknown>) => void focusAfter($, PANE, key, action)
+    const addKey = view.adding === null ? 'add' : 'add-cancel'
+    // 같은 목록에서 바로 아래(없으면 위)의 제목 버튼, 그것도 없으면 fallback
+    const nearTitle = (list: { id: string }[], id: string, prefix: string, fallback: string) => {
+      const at = list.findIndex(one => one.id === id)
+      const other = list[at + 1] ?? list[at - 1]
+      return other === undefined ? fallback : `${prefix}${other.id}`
+    }
+    const itemNear = (item: Item) =>
+      item.status === 'done'
+        ? nearTitle(shownDone, item.id, 'title-', 'done-group')
+        : nearTitle(open, item.id, 'title-', addKey)
 
     // 새 항목·수정의 제목·내용 칸. 친 글은 그 칸 값만 상태에 쓰고, Enter는 상태의 초안 전체로 저장한다
     const fields = (kind: 'add' | 'edit', draft: Draft) =>
@@ -44,14 +65,17 @@ export function drawPane(on: On, text: Text) {
         ? []
         : (['title', 'body'] as const).map(field => (
             <Input
-              key={`${kind}-${field}`}
+              key={kind === 'add' ? `add-${field}` : editFieldKey(field, view.editKey)}
               placeholder={field === 'title' ? text.title : text.details}
               value={draft[field]}
               submitLabel={kind === 'add' ? text.submitAdd : text.submitSave}
               onInput={(value: string) => void setDraft($, kind, field, value)}
               onSubmit={(value: string) =>
-                void setDraft($, kind, field, value).then(() =>
-                  kind === 'add' ? addFromView($, text) : saveFromView($, text),
+                stay(
+                  kind === 'add' ? 'add' : `title-${view.editing?.id}`,
+                  setDraft($, kind, field, value).then(() =>
+                    kind === 'add' ? addFromView($, text) : saveFromView($, text),
+                  ),
                 )
               }
             />
@@ -67,53 +91,63 @@ export function drawPane(on: On, text: Text) {
           plain
           dimColor
           label={isDone ? '☑' : '☐'}
-          onPress={() => void toggleDone($, text, item.id)}
+          onPress={() => stay(itemNear(item), toggleDone($, text, item.id))}
         />
+      )
+      // 체크 칸 옆 세로 묶음 — 제목·내용·입력 칸·버튼을 제목 시작 위치에 맞춘다
+      const beside = (...children: RenderChildren[]) => (
+        <Box key={`row-${item.id}`} flexDirection="row" gap={1} alignItems="flex-start">
+          {check}
+          <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
+            {children}
+          </Box>
+        </Box>
       )
       if (editing !== null) {
         const [title, body] = fields('edit', editing)
         return [
-          <Box key={`row-${item.id}`} flexDirection="row" gap={1}>
-            {check}
-            {title}
-          </Box>,
-          <Box key={`edit-${item.id}`} flexDirection="column" paddingLeft={2}>
-            {body}
-            <Box flexDirection="row" gap={1}>
-              <Button key="edit-ok" plain dimColor label={text.saveOk} onPress={() => void saveFromView($, text)} />
+          beside(
+            title,
+            body,
+            <Box flexDirection="row" gap={1} justifyContent="flex-end">
+              <Button
+                key="edit-ok"
+                {...buttonLook(e.surface, text.saveOk)}
+                onPress={() => stay(`title-${item.id}`, saveFromView($, text))}
+              />
               <Button
                 key="edit-cancel"
-                plain
                 dimColor
-                label={text.cancel}
-                onPress={() => void setView($, v => ({ ...v, editing: null }))}
+                {...buttonLook(e.surface, text.cancel)}
+                onPress={() => stay(`title-${item.id}`, setView($, v => ({ ...v, editing: null })))}
               />
-            </Box>
-          </Box>,
+            </Box>,
+          ),
         ]
       }
+      // 제목만 누르면 펼치고 접는다
       const head = (
-        <Box key={`row-${item.id}`} flexDirection="row" gap={1}>
-          {check}
+        <Box flexDirection="row">
           <Button key={`title-${item.id}`} plain onPress={() => void toggleOpen($, item.id)}>
-            {item.title}
+            <T wrap="wrap">{item.title}</T>
             {item.source === 'user' ? <T dimColor> ☺</T> : ''}
           </Button>
         </Box>
       )
-      if (!isOpen) return [head]
+      if (!isOpen) return [beside(head)]
       const actions =
         view.armedId === item.id ? (
           <Box flexDirection="row" gap={1}>
-            <Button key={`delete-ok-${item.id}`} plain onPress={() => void removeItem($, text, item.id)}>
-              <T color="error">{text.delOk}</T>
-            </Button>
+            <Button
+              key={`delete-ok-${item.id}`}
+              {...buttonLook(e.surface, text.delOk)}
+              onPress={() => stay(itemNear(item), removeItem($, text, item.id))}
+            />
             <Button
               key="delete-cancel"
-              plain
               dimColor
-              label={text.cancel}
-              onPress={() => void setView($, v => ({ ...v, armedId: null }))}
+              {...buttonLook(e.surface, text.cancel)}
+              onPress={() => stay(`delete-${item.id}`, setView($, v => ({ ...v, armedId: null })))}
             />
           </Box>
         ) : (
@@ -121,37 +155,30 @@ export function drawPane(on: On, text: Text) {
             {Input !== null && (
               <Button
                 key={`edit-${item.id}`}
-                plain
                 dimColor
-                label={text.edit}
-                onPress={() =>
-                  void setView($, v => ({
-                    ...v,
-                    adding: null,
-                    armedId: null,
-                    editing: { id: item.id, title: item.title, body: item.body },
-                  }))
-                }
+                {...buttonLook(e.surface, text.edit)}
+                onPress={() => void startEdit($, text.notes, item)}
               />
             )}
             <Button
               key={`delete-${item.id}`}
-              plain
               dimColor
-              label={text.del}
-              onPress={() => void setView($, v => ({ ...v, armedId: item.id }))}
+              {...buttonLook(e.surface, text.del)}
+              onPress={() => stay('delete-cancel', setView($, v => ({ ...v, armedId: item.id })))}
             />
           </Box>
         )
       return [
-        head,
-        <Box key={`detail-${item.id}`} flexDirection="column" paddingLeft={2}>
-          {item.body === '' ? <T dimColor>{text.noDetails}</T> : <T dimColor>{item.body}</T>}
-          <Box flexDirection="row" justifyContent="space-between">
+        beside(
+          head,
+          <T dimColor wrap="wrap">
+            {item.body === '' ? text.noDetails : item.body}
+          </T>,
+          <Box flexDirection="row" justifyContent="space-between" alignItems="flex-start">
             <T dimColor>{shortTime(item.createdAt)}</T>
             {actions}
-          </Box>
-        </Box>,
+          </Box>,
+        ),
       ]
     }
 
@@ -167,20 +194,26 @@ export function drawPane(on: On, text: Text) {
                 dimColor
                 label={text.newItem}
                 onPress={() =>
-                  void setView($, v => ({ ...v, editing: null, armedId: null, adding: { title: '', body: '' } }))
+                  stay(
+                    'add-cancel',
+                    setView($, v => ({ ...v, editing: null, armedId: null, adding: { title: '', body: '' } })),
+                  )
                 }
               />,
             ]
           : [
               ...fields('add', adding),
               <Box flexDirection="row" gap={1} justifyContent="flex-end">
-                <Button key="add-ok" plain dimColor label={text.addOk} onPress={() => void addFromView($, text)} />
+                <Button
+                  key="add-ok"
+                  {...buttonLook(e.surface, text.addOk)}
+                  onPress={() => stay('add', addFromView($, text))}
+                />
                 <Button
                   key="add-cancel"
-                  plain
                   dimColor
-                  label={text.cancel}
-                  onPress={() => void setView($, v => ({ ...v, adding: null }))}
+                  {...buttonLook(e.surface, text.cancel)}
+                  onPress={() => stay('add', setView($, v => ({ ...v, adding: null })))}
                 />
               </Box>,
             ]
@@ -190,27 +223,24 @@ export function drawPane(on: On, text: Text) {
       done.length === 0
         ? []
         : [
-            <Box marginTop={1}>
-              <Button
-                key="done-group"
-                plain
-                dimColor
-                label={`${text.doneGroup(done.length)} ${view.showDone ? '▾' : '▸'}`}
-                onPress={() =>
-                  void setView($, v => ({ ...v, showDone: !v.showDone, showAll: v.showDone ? false : v.showAll }))
-                }
-              />
-            </Box>,
+            <Button
+              key="done-group"
+              plain
+              dimColor
+              label={`${text.doneGroup(done.length)} ${view.showDone ? '▾' : '▸'}`}
+              onPress={() =>
+                void setView($, v => ({ ...v, showDone: !v.showDone, showAll: v.showDone ? false : v.showAll }))
+              }
+            />,
             ...(view.showDone ? shownDone.flatMap(row) : []),
             ...(view.showDone && !view.showAll && done.length > SHOWN_DONE
               ? [
                   <Box paddingLeft={2}>
                     <Button
                       key="more"
-                      plain
                       dimColor
-                      label={text.more(done.length - SHOWN_DONE)}
-                      onPress={() => void setView($, v => ({ ...v, showAll: true }))}
+                      {...buttonLook(e.surface, text.more(done.length - SHOWN_DONE))}
+                      onPress={() => stay(`title-${done[SHOWN_DONE]?.id}`, setView($, v => ({ ...v, showAll: true })))}
                     />
                   </Box>,
                 ]
@@ -218,61 +248,71 @@ export function drawPane(on: On, text: Text) {
           ]
 
     // 맨 위의 제안 — 띠와 같은 표시와 버튼으로 하나씩. 제목을 누르면 내용(완료 제안은 그 항목의 내용)을 펼친다
-    const proposalRows = liveProposals(current).flatMap(p => {
+    const proposals = liveProposals(current)
+    const proposalNear = (id: string) =>
+      nearTitle(proposals, id, 'ptitle-', open[0] === undefined ? addKey : `title-${open[0].id}`)
+    const proposalRows = proposals.flatMap(p => {
       const target = p.kind === 'done' ? current.items.find(item => item.id === p.itemId) : undefined
       const body = p.kind === 'new' ? p.body : (target?.body ?? '')
-      const head = (
-        <Box key={`proposal-${p.id}`} flexDirection="row" justifyContent="space-between">
-          <Box flexDirection="row" gap={2} flexShrink={1}>
-            <Box flexShrink={0}>
+      const detail = view.openId === p.id ? (
+        <T dimColor wrap="wrap">
+          {body === '' ? text.noDetails : body}
+        </T>
+      ) : null
+      return [
+        <Box
+          key={`proposal-${p.id}`}
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="flex-start"
+          gap={2}
+        >
+          <Box flexDirection="row" gap={2} flexShrink={1} minWidth={0} alignItems="flex-start">
+            <Box flexShrink={0} width={3}>
               <T color={MARK[p.kind].color}>{MARK[p.kind].label}</T>
             </Box>
-            <Button key={`ptitle-${p.id}`} plain onPress={() => void toggleOpen($, p.id)}>
-              <T wrap="truncate-end">{p.kind === 'new' ? p.title : (target?.title ?? '')}</T>
-            </Button>
+            <Box flexDirection="column" flexShrink={1} minWidth={0}>
+              <Box flexDirection="row">
+                <Button key={`ptitle-${p.id}`} plain onPress={() => void toggleOpen($, p.id)}>
+                  <T wrap="wrap">{p.kind === 'new' ? p.title : (target?.title ?? '')}</T>
+                </Button>
+              </Box>
+              {detail}
+            </Box>
           </Box>
           <Box flexDirection="row" gap={1} flexShrink={0}>
             <Button
               key={`accept-${p.id}`}
-              plain
-              dimColor
-              label={p.kind === 'new' ? text.accept : text.complete}
-              onPress={() => void acceptProposal($, text, p.id)}
+              {...buttonLook(e.surface, p.kind === 'new' ? text.accept : text.complete)}
+              onPress={() => stay(proposalNear(p.id), acceptProposal($, text, p.id))}
             />
             <Button
               key={`dismiss-${p.id}`}
-              plain
               dimColor
-              label={p.kind === 'new' ? text.dismiss : text.notYet}
-              onPress={() => void dismissProposal($, text, p.id)}
+              {...buttonLook(e.surface, p.kind === 'new' ? text.dismiss : text.notYet)}
+              onPress={() => stay(proposalNear(p.id), dismissProposal($, text, p.id))}
             />
           </Box>
-        </Box>
-      )
-      if (view.openId !== p.id) return [head]
-      return [
-        head,
-        <Box key={`pdetail-${p.id}`} paddingLeft={5}>
-          <T dimColor>{body === '' ? text.noDetails : body}</T>
         </Box>,
       ]
     })
 
+    // 제목은 터미널에서만 본문에 쓴다 — 데스크톱은 머리말에 제목이 있다
     return (
-      <Box flexDirection="column" width={e.props.bodyColumns}>
-        <T bold>{text.notes}</T>
+      <Box flexDirection="column" width={e.props.bodyColumns} gap={1}>
+        {e.surface === 'terminal' ? <T bold>{text.notes}</T> : null}
         {proposalRows.length === 0 ? null : (
-          <Box marginTop={1} flexDirection="column">
+          <Box flexDirection="column">
             {proposalRows}
             {rule}
           </Box>
         )}
-        <Box marginTop={1} flexDirection="column">
+        <Box flexDirection="column">
           {open.length === 0 ? <T dimColor>{text.none}</T> : open.flatMap(row)}
+          {rule}
+          {addRows}
         </Box>
-        {rule}
-        {addRows}
-        {doneRows}
+        {doneRows.length === 0 ? null : <Box flexDirection="column">{doneRows}</Box>}
       </Box>
     )
   })

@@ -2,7 +2,7 @@
 import type { Engine } from 'claude-code/testing'
 import { expect, test } from 'claude-code/testing'
 
-import { BAND, PANE, TOOL, item, keyOf, saved, start } from './world'
+import { BAND, PANE, TOOL, fieldKey, item, keyOf, saved, start } from './world'
 
 const SURFACES = ['terminal', 'desktop'] as const
 
@@ -107,7 +107,7 @@ test('several proposals show as counts with View on the band and one by one in t
   expect(world.told()).toEqual(['[session-note] The user dismissed your proposal "Translate the login error".'])
 })
 
-test('proposals are marked in color with gray bracketed buttons, ruled off, and unfold their details', async ($, on) => {
+test('proposals are marked in color in a fixed-width box with bracketed terminal buttons, ruled off, and unfold their details', async ($, on) => {
   await start($, on, {
     version: 1,
     items: [
@@ -127,14 +127,18 @@ test('proposals are marked in color with gray bracketed buttons, ruled off, and 
     (await pane.findAll({ type: 'Text' })).find(one => one.text === label)?.props['color']
   expect(await colorOf('[+]')).toBe('suggestion')
   expect(await colorOf('[✓]')).toBe('success')
+  // 표시는 고정 폭 상자에 들어가 뒤따르는 제목의 시작 위치가 같다
+  const markBoxes = (await pane.findAll({ type: 'Box' })).filter(one => one.text === '[+]' || one.text === '[✓]')
+  expect(markBoxes.map(one => one.props['width'])).toEqual([3, 3])
   const proposalButtons = (await pane.findAll({ type: 'Button' })).filter(
     one => one.key?.startsWith('accept-') || one.key?.startsWith('dismiss-'),
   )
-  expect(proposalButtons.map(one => [one.text, one.props['dimColor']])).toEqual([
-    ['[Add]', true],
-    ['[Dismiss]', true],
-    ['[Complete]', true],
-    ['[Not yet]', true],
+  // 터미널은 여백 없는 [이름] 글자 버튼이고, 주 버튼(추가·완료)만 흐리지 않다
+  expect(proposalButtons.map(one => [one.text, one.props['plain'], one.props['dimColor']])).toEqual([
+    ['[Add]', true, undefined],
+    ['[Dismiss]', true, true],
+    ['[Complete]', true, undefined],
+    ['[Not yet]', true, true],
   ])
   expect(await rules()).toBe(2)
 
@@ -153,14 +157,16 @@ test('proposals are marked in color with gray bracketed buttons, ruled off, and 
   expect((await band.find({ key: 'pending' }))?.text).toContain('[+] 1 new · [✓] 1 done')
 })
 
-test('one proposal on the band has a colored mark and gray bracketed buttons', async ($, on) => {
-  await start($, on)
-  await call($, { action: 'propose', title: 'Check the redirect' })
-  const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
-  expect((await band.findAll({ type: 'Text' })).find(one => one.text === '[+]')?.props['color']).toBe('suggestion')
-  const accept = await band.find({ key: await keyOf(band, 'accept-', '[Add]') })
-  expect([accept?.text, accept?.props['dimColor']]).toEqual(['[Add]', true])
-})
+for (const surface of SURFACES) {
+  test(`one proposal on the band has a colored mark and plain buttons bracketed only on the terminal (${surface})`, async ($, on) => {
+    await start($, on)
+    await call($, { action: 'propose', title: 'Check the redirect' })
+    const band = await $.ui.mount({ plugin: 'session-note', surface, ...BAND })
+    expect((await band.findAll({ type: 'Text' })).find(one => one.text === '[+]')?.props['color']).toBe('suggestion')
+    const accept = await band.find({ key: await keyOf(band, 'accept-', 'Add') })
+    expect([accept?.text, accept?.props['plain']]).toEqual([surface === 'terminal' ? '[Add]' : 'Add', true])
+  })
+}
 
 test('a done proposal whose item was deleted or completed is not shown', async ($, on) => {
   await start($, on, {
@@ -185,7 +191,7 @@ test('what the user changes in the pane is told to the session, one line each', 
   const ref = id.slice(0, 8)
   await pane.press({ key: `title-${id}` })
   await pane.press({ key: `edit-${id}` })
-  await pane.input({ key: 'edit-body', text: 'A 500 right after expiry' })
+  await pane.input({ key: await fieldKey(pane, 'edit-body'), text: 'A 500 right after expiry' })
   await pane.press({ key: `check-${id}` })
   await pane.press({ key: 'done-group' })
   await pane.press({ key: `check-${id}` })

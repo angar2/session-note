@@ -54,6 +54,8 @@ export type World = {
   files: Map<string, string>
   toasts: string[]
   panes: Set<string>
+  // 키보드를 달라고(focus) 연 패널 id — 커서가 칸에 가는지는 시험 키트가 다루지 않아 가상 터미널로 본다
+  focusOpened: string[]
   tools: string[]
   failWrite: boolean
   // 세션(모델)에게 전해진 글
@@ -67,6 +69,7 @@ export async function start($: Engine, on: On, note?: Note, raw?: string): Promi
     files: new Map(),
     toasts: [],
     panes: new Set(),
+    focusOpened: [],
     tools: [],
     failWrite: false,
     told: () =>
@@ -98,6 +101,7 @@ export async function start($: Engine, on: On, note?: Note, raw?: string): Promi
   })
   on('ui.open', (_, e) => {
     world.panes.add(e.id)
+    if (e.focus) world.focusOpened.push(e.id)
     return { value: { isPlaced: true } }
   })
   on('ui.close', (_, e) => {
@@ -121,6 +125,13 @@ export async function start($: Engine, on: On, note?: Note, raw?: string): Promi
 export const saved = (world: World): Note => JSON.parse(world.files.get(PATH) ?? 'null')
 
 type Drawing = { findAll: (query: { type: string }) => Promise<{ key: string | undefined; text: string }[]> }
+
+// 수정 칸은 저장할 때마다 key 끝이 바뀐다 — 앞부분(edit-title·edit-body)으로 지금 그려진 칸의 key를 찾는다
+export async function fieldKey(ui: Drawing, prefix: string): Promise<string> {
+  const found = (await ui.findAll({ type: 'Input' })).find(one => one.key?.startsWith(`${prefix}-`))
+  if (found?.key === undefined) throw new Error(`no ${prefix} field`)
+  return found.key
+}
 
 // 그려진 버튼 중 key가 prefix로 시작하고 글자에 title이 든 것의 key
 export async function keyOf(ui: Drawing, prefix: string, title: string): Promise<string> {

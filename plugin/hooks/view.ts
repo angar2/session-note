@@ -25,6 +25,7 @@ const blankView = (): View => ({
   showAll: false,
   adding: null,
   editing: null,
+  editKey: LOAD,
 })
 
 const session = atom({ plugin: 'session-note', key: 'session' } as const, null)
@@ -90,6 +91,32 @@ export async function dropDrafts($: EngineInterface) {
 export async function openPane($: EngineInterface, title: string) {
   await $.ui.open({ id: PANE, title })
   await update($, paneOpen, () => true)
+}
+
+// 수정 칸의 key — 끝의 editKey는 수정을 저장할 때마다 바뀐다(types View.editKey)
+export const editFieldKey = (field: keyof Draft, editKey: string) => `edit-${field}-${editKey}`
+
+// [수정]을 누르면 그 항목을 수정 칸으로 바꾸고, 패널이 키보드를 받아 제목 칸 끝에 커서를 둔다.
+// 패널은 누른 즉시 다시 연다 — 기다린 뒤 열면 좁은 터미널에서 엔진이 누름에 대한 열기로 보지 않는다(TASK-010).
+// 채팅 입력창에 치다 만 글이 있으면 엔진이 키보드를 넘기지 않는다 — 커서 옮기기는 덤이라, 거절되거나 실패해도 수정 칸은 그대로 둔다
+export async function startEdit($: EngineInterface, title: string, item: Item) {
+  const opened = $.ui.open({ id: PANE, title, focus: true })
+  await setView($, view => ({
+    ...view,
+    adding: null,
+    armedId: null,
+    editing: { id: item.id, title: item.title, body: item.body },
+  }))
+  await opened
+  const { editKey } = await readView($)
+  await $.ui.focus({ requestId: PANE, key: editFieldKey('title', editKey) }).catch(() => undefined)
+}
+
+// 데스크톱 앱은 누른 버튼이 누른 결과로 사라지면 다음 첫 클릭에 반응하지 않는다(TASK-014). 동작이 끝나면 커서를
+// 그 화면(site: 패널 id 또는 띠의 requestId)에 남는 버튼(key)으로 옮긴다 — 덤이라, 거절되거나 실패해도 그대로 둔다
+export async function focusAfter($: EngineInterface, site: string, key: string, action: Promise<unknown>) {
+  await action
+  await $.ui.focus({ requestId: site, key }).catch(() => undefined)
 }
 
 // isOpen: 띠가 그릴 때 읽은 열림 상태. 열 때는 기다림 없이 $.ui.open부터 불러야 엔진이 누름에 대한 열기로
@@ -200,7 +227,7 @@ export async function saveEdit($: EngineInterface, text: Text, id: string, draft
   const title = draft.title.trim()
   const saved = await change($, text, n => editIn(n, id, title, draft.body.trim()))
   if (saved === null) return
-  await setView($, view => ({ ...view, editing: null }))
+  await setView($, view => ({ ...view, editing: null, editKey: newId() }))
   const item = itemIn(saved, id)
   if (item) await tell($, told.edited(item))
 }
