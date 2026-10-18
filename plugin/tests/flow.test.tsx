@@ -1,4 +1,4 @@
-// 세션 쪽 흐름 — 노트 도구, 띠·패널의 제안 받기·무시, 사용자가 바꾼 것의 세션 알림, 압축 뒤 노트 전체 전달 (spec AGENT.md)
+// 세션 쪽 흐름 — 할 일 도구, 띠·패널의 제안 받기·무시, 사용자가 바꾼 것의 세션 알림, 압축 뒤 노트 전체 전달 (spec AGENT.md)
 import type { Engine } from 'claude-code/testing'
 import { expect, test } from 'claude-code/testing'
 
@@ -8,7 +8,7 @@ const SURFACES = ['terminal', 'desktop'] as const
 
 type Called = { result?: unknown; deny?: string }
 
-// 세션이 노트 도구를 부른 것처럼 부른다
+// 세션이 할 일 도구를 부른 것처럼 부른다
 async function call($: Engine, args: Record<string, string>): Promise<Called> {
   return (await $.tool.call({ tool: TOOL, tool_use_id: `t${Math.random()}`, ...args } as never)) as Called
 }
@@ -17,9 +17,9 @@ const resultOf = (called: Called) => String(called.result)
 
 const refIn = (text: string) => /\[([0-9a-f]{8})\]/.exec(text)?.[1] ?? ''
 
-test('the note tool is registered with its schema in the prompt', async ($, on) => {
+test('the todo and process tools are registered with their schemas in the prompt', async ($, on) => {
   const world = await start($, on)
-  expect(world.tools).toEqual(['note'])
+  expect(world.tools).toEqual(['todo', 'process'])
 })
 
 test('an item the user asks for is added at once, with no mark and no notice', async ($, on) => {
@@ -328,7 +328,7 @@ test('a long note is handed over with titles only and a pointer to list', async 
   const whole = answered.additionalContext?.[0] ?? ''
   expect(whole).not.toContain('xxx')
   expect(whole).toContain('- [00000019] "Item 19"')
-  expect(whole).toContain("use the note tool's list action")
+  expect(whole).toContain('use the list action of the todo and process tools')
 })
 
 test('Korean labels the proposal on the band', { options: { language: '한국어' } }, async ($, on) => {

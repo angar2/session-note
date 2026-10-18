@@ -1,4 +1,4 @@
-// session-note의 타입 계약 — 노트·항목·제안의 형식(spec DATA.md 2절)과 띠·패널이 그리는 상태 값($.state)
+// session-note의 타입 계약 — 노트·항목·제안·과정의 형식(spec DATA.md 2·4절)과 띠·패널이 그리는 상태 값($.state)
 
 export type ItemSource = 'proposal' | 'user' | 'instruction' | 'auto'
 
@@ -16,7 +16,16 @@ export type Proposal =
   | { id: string; kind: 'new'; title: string; body: string; proposedAt: string }
   | { id: string; kind: 'done'; itemId: string; proposedAt: string }
 
-export type Note = { version: 1; items: Item[]; proposals: Proposal[] }
+export type StepStatus = 'waiting' | 'active' | 'done' | 'stopped'
+
+// 과정의 한 단계. 아래 단계가 있으면 status는 아래 단계로 계산한 값이다(spec AGENT.md 6-3) — 읽을 때 다시 계산한다
+export type Step = { id: string; title: string; memo: string; status: StepStatus; steps: Step[] }
+
+// 세션이 짜고 고치는 과정 하나. 진행 중(active) 과정은 많아야 하나다
+export type Process = { id: string; title: string; status: 'waiting' | 'active'; createdAt: string; steps: Step[] }
+
+// processes는 1.1.0에서 더한 칸이다 — 없는 1.0.x 파일은 과정이 빈 노트로 읽는다
+export type Note = { version: 1; items: Item[]; proposals: Proposal[]; processes: Process[] }
 
 export type Draft = { title: string; body: string }
 
