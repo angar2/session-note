@@ -3,7 +3,7 @@ import type { Engine } from 'claude-code/testing'
 import { mock } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import type { Item, Note, Process } from '../types'
+import type { Item, Note, Process, Step } from '../types'
 
 export const pathOf = (id: string) => `/home/zeke/.claude/plugins/data/session-note-inline/sessions/${id}.json`
 export const PATH = pathOf('s1')
@@ -52,6 +52,30 @@ export const item = (
   status,
   createdAt: at,
   doneAt: status === 'done' ? at : null,
+})
+
+// 과정 단계 하나(메모 없음)
+export const step = (id: string, title: string, status: Step['status'], steps: Step[] = []): Step => ({
+  id,
+  title,
+  memo: '',
+  status,
+  steps,
+})
+
+// 과정 하나
+export const proc = (
+  id: string,
+  title: string,
+  status: Process['status'],
+  steps: Step[],
+  at = '2026-10-16T14:00:00+09:00',
+): Process => ({
+  id,
+  title,
+  status,
+  createdAt: at,
+  steps,
 })
 
 export type World = {

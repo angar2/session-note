@@ -1,8 +1,10 @@
-// 오른쪽 노트 패널 — 세션의 제안·열린 항목·새 항목·완료 묶음과 펼침·수정·삭제 (spec UI.md 2·3절)
+// 오른쪽 노트 패널 — 할 일·과정 탭. 할 일 탭은 세션의 제안·열린 항목·새 항목·완료 묶음과 펼침·수정·삭제 (spec UI.md 2·3절)
 import type { EngineInterface, On, RenderChildren } from 'claude-code'
 
 import type { Item } from './note'
-import { MARK, buttonLook } from './text'
+import { isFinished } from './process'
+import { drawProcessTab } from './process-pane'
+import { LABEL, MARK, buttonLook } from './text'
 import type { Text } from './text'
 import {
   PANE,
@@ -22,6 +24,7 @@ import {
   startEdit,
   toggleDone,
   type Draft,
+  type Tab,
 } from './view'
 
 const SHOWN_DONE = 5
@@ -297,10 +300,42 @@ export function drawPane(on: On, text: Text) {
       ]
     })
 
+    // 맨 위 탭 줄 — 고른 탭은 밝고 굵게, 다른 탭은 회색. N은 남은 할 일 수·안 끝난 과정 수
+    const tabButton = (tab: Tab, label: string) => {
+      const chosen = view.tab === tab
+      return (
+        <Button key={`tab-${tab}`} plain onPress={() => void setView($, v => ({ ...v, tab }))}>
+          <T bold={chosen ? true : undefined} dimColor={chosen ? undefined : true}>
+            {label}
+          </T>
+        </Button>
+      )
+    }
     // 제목은 터미널에서만 본문에 쓴다 — 데스크톱은 머리말에 제목이 있다
+    const head = (
+      <Box flexDirection="column">
+        {e.surface === 'terminal' ? <T bold>{text.notes}</T> : null}
+        <Box flexDirection="row" gap={4}>
+          {tabButton('todo', `${LABEL.todo} ${text.todo} ${open.length}`)}
+          {tabButton(
+            'process',
+            `${LABEL.process} ${text.process} ${current.processes.filter(proc => !isFinished(proc)).length}`,
+          )}
+        </Box>
+        {rule}
+      </Box>
+    )
+
+    if (view.tab === 'process')
+      return (
+        <Box flexDirection="column" width={e.props.bodyColumns} gap={1}>
+          {head}
+          {drawProcessTab($, { Box, Button, Text: T }, text, current, view, rule)}
+        </Box>
+      )
     return (
       <Box flexDirection="column" width={e.props.bodyColumns} gap={1}>
-        {e.surface === 'terminal' ? <T bold>{text.notes}</T> : null}
+        {head}
         {proposalRows.length === 0 ? null : (
           <Box flexDirection="column">
             {proposalRows}

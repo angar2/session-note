@@ -2,7 +2,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
-import type { Draft, Item, Note, Proposal, View } from '../types'
+import type { Draft, Item, Note, Proposal, Tab, View } from '../types'
 import { emptyNote, isoAt, newId } from './note'
 
 export { doneItems, liveProposals, openItems } from './note'
@@ -10,7 +10,7 @@ import { keepCopy, loadNote, notePath, saveNote } from './store'
 import { tell, told } from './tell'
 import type { Text } from './text'
 
-export type { Draft, View } from '../types'
+export type { Draft, Tab, View } from '../types'
 
 export const PANE = 'session-note'
 
@@ -26,6 +26,9 @@ const blankView = (): View => ({
   adding: null,
   editing: null,
   editKey: LOAD,
+  tab: 'todo',
+  folds: {},
+  showFinished: false,
 })
 
 const session = atom({ plugin: 'session-note', key: 'session' } as const, null)
@@ -120,9 +123,14 @@ export async function focusAfter($: EngineInterface, site: string, key: string, 
 }
 
 // isOpen: 띠가 그릴 때 읽은 열림 상태. 열 때는 기다림 없이 $.ui.open부터 불러야 엔진이 누름에 대한 열기로
-// 보고 폭과 상관없이 배치한다 — 기다린 뒤 열면 좁은 터미널(110칸 미만)에서 그리지 않는다 (spec UI.md 2절)
-export async function togglePane($: EngineInterface, title: string, isOpen: boolean) {
-  if (!isOpen) return openPane($, title)
+// 보고 폭과 상관없이 배치한다 — 기다린 뒤 열면 좁은 터미널(110칸 미만)에서 그리지 않는다 (spec UI.md 2절).
+// tab: 그 탭으로 연다(띠의 보기 → 할 일). 없으면 마지막으로 고른 탭 그대로
+export async function togglePane($: EngineInterface, title: string, isOpen: boolean, tab?: Tab) {
+  if (!isOpen) {
+    const opened = openPane($, title)
+    if (tab !== undefined) await setView($, view => ({ ...view, tab }))
+    return opened
+  }
   // 자기 $.ui.close에는 자기 ui.close 훅이 돌지 않을 수 있어 여기서도 닫힘을 기록한다
   await $.ui.close({ id: PANE })
   await paneClosed($)
