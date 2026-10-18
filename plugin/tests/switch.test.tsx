@@ -2,10 +2,9 @@
 import type { Engine } from 'claude-code/testing'
 import { expect, test } from 'claude-code/testing'
 
-import type { Note } from '../types'
-import { BAND, PANE, PATH, TOOL, item, pathOf, saved, start } from './world'
+import { BAND, PANE, PATH, TOOL, item, pathOf, saved, start, type NoteFile } from './world'
 
-const withOpen: Note = {
+const withOpen: NoteFile = {
   version: 1,
   items: [
     item('a1b2c3d4-0000', 'Check the redirect', 'open', '2026-10-16T14:05:00+09:00'),
