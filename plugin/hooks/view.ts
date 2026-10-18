@@ -29,7 +29,7 @@ const blankView = (): View => ({
 })
 
 const session = atom({ plugin: 'session-note', key: 'session' } as const, null)
-const note = atom({ plugin: 'session-note', key: 'note' } as const, { version: 1, items: [], proposals: [] })
+const note = atom({ plugin: 'session-note', key: 'note' } as const, emptyNote())
 const paneOpen = atom({ plugin: 'session-note', key: 'paneOpen' } as const, false)
 const viewAtom = atom({ plugin: 'session-note', key: 'view' } as const, blankView())
 
