@@ -82,7 +82,7 @@ export const findProcess = (note: Note, ref: string) => note.processes.find(proc
 // 단계 아래로 몇 단이 있는지(아래 단계가 없으면 1)
 export const heightOf = (step: Step): number => 1 + Math.max(0, ...step.steps.map(heightOf))
 
-const leavesOf = (step: Step): Step[] => (step.steps.length === 0 ? [step] : step.steps.flatMap(leavesOf))
+export const leavesOf = (step: Step): Step[] => (step.steps.length === 0 ? [step] : step.steps.flatMap(leavesOf))
 
 // 지금 단계 — 진행 중인 끝 단계가 하나면 그 단계, 여럿이고 같은 1단 안이면 그들을 묶는 가장 가까운 위 단계,
 // 서로 다른 1단에 흩어져 있으면 앞쪽 하나와 나머지 개수(띠의 "외 N"). 진행 중 단계가 없으면 null (spec UI.md 6절)
