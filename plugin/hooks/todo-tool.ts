@@ -1,4 +1,4 @@
-// 세션(모델)이 쓰는 노트 도구 — 목록·제안·완료 제안, 사용자가 시킨 추가·완료·수정·삭제·되돌리기, 대화로 받은 제안 (spec AGENT.md 1~3절)
+// 세션(모델)이 쓰는 할 일 도구(todo) — 목록·제안·완료 제안, 사용자가 시킨 추가·완료·수정·삭제·되돌리기, 대화로 받은 제안 (spec AGENT.md 1~3절)
 import type { EngineInterface, On } from 'claude-code'
 
 import { isoAt, newId, openItems } from './note'
@@ -16,8 +16,8 @@ import {
   saveChange,
 } from './view'
 
-const NAME = 'note'
-const CALLED = 'mcp__session-note__note'
+const NAME = 'todo'
+const CALLED = 'mcp__session-note__todo'
 
 // 제안 기준과 완료 대조 규칙은 이 설명문에 고정한다 — 매 답변 노트를 넣지 않는다(성공 기준 ③)
 const DESCRIPTION = `The session note: a short list of things to do or check in this session, shared with the user. The user sees it above the prompt and in a side pane, and can add, edit, complete or delete items there; those changes reach you as messages starting with [session-note]. Items and proposals are named by an 8-character ref such as [a1b2c3d4].
@@ -75,7 +75,7 @@ export function registerTool($: EngineInterface) {
 
 export function serveTool(on: On) {
   on('tool.call', { tool: CALLED }, async ($, e) => answer($, e as unknown as Record<string, unknown>)).catch(() => ({
-    deny: 'The note tool failed. Try again later.',
+    deny: 'The todo tool failed. Try again later.',
   }))
 }
 

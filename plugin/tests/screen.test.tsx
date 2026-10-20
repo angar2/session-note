@@ -9,7 +9,7 @@ for (const surface of SURFACES) {
   test(`an empty note shows a dim count and opens and closes the pane from the band (${surface})`, async ($, on) => {
     const world = await start($, on)
     const band = await $.ui.mount({ plugin: 'session-note', surface, ...BAND })
-    expect((await band.find({ key: 'count' }))?.text).toBe('Notes 0')
+    expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 0')
     expect((await band.find({ key: 'toggle' }))?.text).toContain('Open')
     await band.press({ key: 'toggle' })
     expect(world.panes.has('session-note')).toBe(true)
@@ -41,7 +41,7 @@ for (const surface of SURFACES) {
       ['Translate the login error', '', 'user', 'open'],
     ])
     expect(saved(world).items[0]?.createdAt).toMatch(/^2026-10-16T\d\d:00:00[+-]\d\d:\d\d$/)
-    expect((await band.find({ key: 'count' }))?.text).toBe('Notes 2')
+    expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 2')
     expect((await pane.find({ key: await keyOf(pane, 'title-', 'Check token expiry') }))?.text).toContain('☺')
     expect(await pane.find({ key: 'add-title' })).toBeUndefined()
   })
@@ -111,7 +111,7 @@ for (const surface of SURFACES) {
     expect(saved(world).items[0]).toMatchObject({ status: 'done' })
     expect(saved(world).items[0]?.doneAt).not.toBeNull()
     expect(saved(world).proposals).toEqual([])
-    expect((await band.find({ key: 'count' }))?.text).toBe('Notes 0')
+    expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 0')
     expect((await pane.find({ key: 'done-group' }))?.text).toContain('Done 1 ▸')
 
     await pane.press({ key: 'done-group' })
@@ -120,7 +120,7 @@ for (const surface of SURFACES) {
     expect((await pane.find({ key: 'title-a' }))?.props['dimColor']).toBeUndefined()
     await pane.press({ key: 'check-a' })
     expect(saved(world).items[0]).toMatchObject({ status: 'open', doneAt: null })
-    expect((await band.find({ key: 'count' }))?.text).toBe('Notes 1')
+    expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 1')
   })
 
   test(`the done group shows the five most recent and the rest behind show more (${surface})`, async ($, on) => {
@@ -174,7 +174,7 @@ for (const surface of SURFACES) {
         proposals: [],
       })
       const band = await $.ui.mount({ plugin: 'session-note', surface, ...BAND })
-      expect((await band.find({ key: 'count' }))?.text).toBe('노트 1')
+      expect((await band.find({ key: 'count' }))?.text).toBe('☑ 할 일 1')
       expect((await band.find({ key: 'toggle' }))?.text).toContain('열기')
       const pane = await $.ui.mount({ plugin: 'session-note', surface, ...PANE })
       expect((await pane.find({ key: 'add' }))?.text).toContain('+ 새 항목')
@@ -204,12 +204,12 @@ for (const [setting, key] of BACKGROUNDS) {
       const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
       const [whole] = await band.findAll({ type: 'Box' })
       expect(whole?.props['backgroundColor']).toBe(key)
-      expect(whole?.text).toContain('Notes 0')
+      expect(whole?.text).toContain('☑ To do 0')
       // 데스크톱은 어떤 설정이든 칠하지 않는다
       const desktop = await $.ui.mount({ plugin: 'session-note', surface: 'desktop', ...BAND })
       const [plain] = await desktop.findAll({ type: 'Box' })
       expect(plain?.props['backgroundColor']).toBeUndefined()
-      expect(plain?.text).toContain('Notes 0')
+      expect(plain?.text).toContain('☑ To do 0')
     },
   )
 }

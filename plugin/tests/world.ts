@@ -3,11 +3,15 @@ import type { Engine } from 'claude-code/testing'
 import { mock } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import type { Item, Note } from '../types'
+import type { Item, Note, Process, Step } from '../types'
 
 export const pathOf = (id: string) => `/home/zeke/.claude/plugins/data/session-note-inline/sessions/${id}.json`
 export const PATH = pathOf('s1')
-export const TOOL = 'mcp__session-note__note'
+export const TOOL = 'mcp__session-note__todo'
+export const PROCESS_TOOL = 'mcp__session-note__process'
+
+// 파일에 둔 노트 — 1.0.x 파일처럼 processes가 없어도 된다
+export type NoteFile = Omit<Note, 'processes'> & { processes?: Process[] }
 
 export const BAND = {
   component: 'AbovePrompt',
@@ -50,6 +54,30 @@ export const item = (
   doneAt: status === 'done' ? at : null,
 })
 
+// 과정 단계 하나(메모 없음)
+export const step = (id: string, title: string, status: Step['status'], steps: Step[] = []): Step => ({
+  id,
+  title,
+  memo: '',
+  status,
+  steps,
+})
+
+// 과정 하나
+export const proc = (
+  id: string,
+  title: string,
+  status: Process['status'],
+  steps: Step[],
+  at = '2026-10-16T14:00:00+09:00',
+): Process => ({
+  id,
+  title,
+  status,
+  createdAt: at,
+  steps,
+})
+
 export type World = {
   files: Map<string, string>
   toasts: string[]
@@ -63,7 +91,7 @@ export type World = {
 }
 
 // raw: 노트 대신 파일에 그대로 둘 글(깨진 파일 시험)
-export async function start($: Engine, on: On, note?: Note, raw?: string): Promise<World> {
+export async function start($: Engine, on: On, note?: NoteFile, raw?: string): Promise<World> {
   const session = mock.session(on)
   const world: World = {
     files: new Map(),

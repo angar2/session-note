@@ -1,20 +1,22 @@
-// session-note 모드의 훅 모듈 진입점 — 세션의 노트를 열고 띠·패널·/note·노트 도구를 등록한다
+// session-note 모드의 훅 모듈 진입점 — 세션의 노트를 열고 띠·패널·/note·할 일 도구·과정 도구를 등록한다
 import type { EngineInterface, Register } from 'claude-code'
 
 import { drawBand } from './band'
 import { drawPane } from './pane'
 import { arrival, wholeNote } from './tell'
 import { backgroundOf, langOf, textOf, type Text } from './text'
-import { registerTool, serveTool } from './tool'
+import { registerProcessTool, serveProcessTool } from './process-tool'
+import { registerTool, serveTool } from './todo-tool'
 import { PANE, openPane, openSession, paneClosed, readNote } from './view'
 
 export const register: Register = (on, options) => {
   const text = textOf(langOf(options.language))
 
-  // 세션 시작과 모드가 다시 켜질 때마다: /note·노트 도구 등록, 이 세션의 노트 읽기, 패널이 열려 있는지 맞추기
+  // 세션 시작과 모드가 다시 켜질 때마다: /note·할 일 도구·과정 도구 등록, 이 세션의 노트 읽기, 패널이 열려 있는지 맞추기
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'note', description: text.command })
     await registerTool($)
+    await registerProcessTool($)
     await openSession($, text, await $.session.id())
     return next(e)
   })
@@ -32,7 +34,7 @@ export const register: Register = (on, options) => {
     return closed
   })
 
-  // 세션이 바뀌면(/clear·/resume·--fork-session) 그 세션의 노트로 갈아끼우고, 불러온 세션과 압축 직후에는 노트를 전한다(spec AGENT.md 4·5절).
+  // 세션이 바뀌면(/clear·/resume·--fork-session) 그 세션의 노트로 갈아끼우고, 불러온 세션과 압축 직후에는 할 일과 과정을 전한다(spec AGENT.md 4·5절·6-5).
   // 훅의 additionalContext로 넘겨야 압축·불러온 대화 뒤에 놓인다($.session.append는 압축 경계보다 앞에 놓인다 — 실제 세션에서 확인)
   on('classic.SessionStart', async ($, e, next) => {
     const answered = await next(e)
@@ -42,6 +44,7 @@ export const register: Register = (on, options) => {
   })
 
   serveTool(on)
+  serveProcessTool(on)
   drawBand(on, text, backgroundOf(options.bandBackground))
   drawPane(on, text)
 }

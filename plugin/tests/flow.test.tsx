@@ -1,4 +1,4 @@
-// 세션 쪽 흐름 — 노트 도구, 띠·패널의 제안 받기·무시, 사용자가 바꾼 것의 세션 알림, 압축 뒤 노트 전체 전달 (spec AGENT.md)
+// 세션 쪽 흐름 — 할 일 도구, 띠·패널의 제안 받기·무시, 사용자가 바꾼 것의 세션 알림, 압축 뒤 노트 전체 전달 (spec AGENT.md)
 import type { Engine } from 'claude-code/testing'
 import { expect, test } from 'claude-code/testing'
 
@@ -8,7 +8,7 @@ const SURFACES = ['terminal', 'desktop'] as const
 
 type Called = { result?: unknown; deny?: string }
 
-// 세션이 노트 도구를 부른 것처럼 부른다
+// 세션이 할 일 도구를 부른 것처럼 부른다
 async function call($: Engine, args: Record<string, string>): Promise<Called> {
   return (await $.tool.call({ tool: TOOL, tool_use_id: `t${Math.random()}`, ...args } as never)) as Called
 }
@@ -17,9 +17,9 @@ const resultOf = (called: Called) => String(called.result)
 
 const refIn = (text: string) => /\[([0-9a-f]{8})\]/.exec(text)?.[1] ?? ''
 
-test('the note tool is registered with its schema in the prompt', async ($, on) => {
+test('the todo and process tools are registered with their schemas in the prompt', async ($, on) => {
   const world = await start($, on)
-  expect(world.tools).toEqual(['note'])
+  expect(world.tools).toEqual(['todo', 'process'])
 })
 
 test('an item the user asks for is added at once, with no mark and no notice', async ($, on) => {
@@ -30,7 +30,7 @@ test('an item the user asks for is added at once, with no mark and no notice', a
   expect(saved(world).items.map(one => [one.title, one.body, one.source])).toEqual([
     ['Check token expiry', 'A 500 right after expiry', 'instruction'],
   ])
-  expect((await band.find({ key: 'count' }))?.text).toBe('Notes 1')
+  expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 1')
   const pane = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...PANE })
   expect((await pane.find({ key: await keyOf(pane, 'title-', 'Check token expiry') }))?.text).not.toContain('☺')
   expect(world.told()).toEqual([])
@@ -44,7 +44,8 @@ for (const surface of SURFACES) {
     expect(resultOf(proposed)).toContain('waits on the user')
     expect((await band.find({ key: 'pending' }))?.text).toContain('[+]')
     expect((await band.find({ key: 'pending' }))?.text).toContain('Check the redirect')
-    expect(await band.find({ key: 'toggle' })).toBeUndefined()
+    // 열기 자리는 제안이 와도 늘 있다
+    expect((await band.find({ key: 'toggle' }))?.text).toContain('Open')
     // 같은 제목은 두 번 올리지 않는다
     expect(resultOf(await call($, { action: 'propose', title: 'check the redirect' }))).toContain('already proposed')
 
@@ -53,7 +54,7 @@ for (const surface of SURFACES) {
     expect(saved(world).items.map(one => [one.title, one.body, one.source, one.createdAt])).toEqual([
       ['Check the redirect', 'Query strings', 'proposal', saved(world).items[0]?.createdAt],
     ])
-    expect((await band.find({ key: 'count' }))?.text).toBe('Notes 1')
+    expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 1')
     expect((await band.find({ key: 'toggle' }))?.text).toContain('Open')
     expect(world.told()).toEqual([
       `[session-note] The user accepted your proposal; it is now item [${saved(world).items[0]?.id.slice(0, 8)}] "Check the redirect".`,
@@ -79,7 +80,7 @@ for (const surface of SURFACES) {
     await call($, { action: 'propose_done', id: 'a1b2c3d4' })
     await band.press({ key: await keyOf(band, 'accept-', 'Complete') })
     expect(saved(world).items[0]).toMatchObject({ status: 'done' })
-    expect((await band.find({ key: 'count' }))?.text).toBe('Notes 0')
+    expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 0')
     expect(world.told()[1]).toBe('[session-note] The user confirmed [a1b2c3d4] "Check the redirect" is done.')
   })
 }
@@ -117,7 +118,8 @@ test('proposals are marked in color in a fixed-width box with bracketed terminal
   })
   const pane = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...PANE })
   const rules = async () => (await pane.findAll({ type: 'Text' })).filter(one => one.text.startsWith('─')).length
-  expect(await rules()).toBe(1)
+  // 탭 줄 아래 하나와 열린 항목 아래 하나
+  expect(await rules()).toBe(2)
 
   const proposed = refIn(
     resultOf(await call($, { action: 'propose', title: 'Translate the login error', body: 'Says 500' })),
@@ -140,7 +142,7 @@ test('proposals are marked in color in a fixed-width box with bracketed terminal
     ['[Complete]', true, undefined],
     ['[Not yet]', true, true],
   ])
-  expect(await rules()).toBe(2)
+  expect(await rules()).toBe(3)
 
   const shows = async (body: string) => (await pane.findAll({ type: 'Text' })).some(one => one.text === body)
   const newTitle = await keyOf(pane, 'ptitle-', 'Translate the login error')
@@ -179,7 +181,7 @@ test('a done proposal whose item was deleted or completed is not shown', async (
   })
   const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
   expect(await band.find({ key: 'pending' })).toBeUndefined()
-  expect((await band.find({ key: 'count' }))?.text).toBe('Notes 0')
+  expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 0')
 })
 
 test('what the user changes in the pane is told to the session, one line each', async ($, on) => {
@@ -271,7 +273,7 @@ test('edit, delete and reopen work by ref on the band and pane, with no notice',
   expect(await keyOf(pane, 'title-', 'Old work')).toMatch(/^title-/)
   expect((await pane.findAll({ type: 'Button' })).some(one => one.text.includes('Drop me'))).toBe(false)
   const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
-  expect((await band.find({ key: 'count' }))?.text).toBe('Notes 2')
+  expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 2')
   expect(world.told()).toEqual([])
 })
 
@@ -328,7 +330,7 @@ test('a long note is handed over with titles only and a pointer to list', async 
   const whole = answered.additionalContext?.[0] ?? ''
   expect(whole).not.toContain('xxx')
   expect(whole).toContain('- [00000019] "Item 19"')
-  expect(whole).toContain("use the note tool's list action")
+  expect(whole).toContain('use the list action of the todo and process tools')
 })
 
 test('Korean labels the proposal on the band', { options: { language: '한국어' } }, async ($, on) => {

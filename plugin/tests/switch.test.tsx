@@ -2,10 +2,9 @@
 import type { Engine } from 'claude-code/testing'
 import { expect, test } from 'claude-code/testing'
 
-import type { Note } from '../types'
-import { BAND, PANE, PATH, TOOL, item, pathOf, saved, start } from './world'
+import { BAND, PANE, PATH, TOOL, item, pathOf, saved, start, type NoteFile } from './world'
 
-const withOpen: Note = {
+const withOpen: NoteFile = {
   version: 1,
   items: [
     item('a1b2c3d4-0000', 'Check the redirect', 'open', '2026-10-16T14:05:00+09:00'),
@@ -28,7 +27,7 @@ test('/clear swaps in the new session empty note, drops drafts and tells nothing
   expect(await pane.find({ key: 'add-title' })).toBeDefined()
 
   expect(await switchTo($, 'clear', 's2')).toEqual([])
-  expect((await band.find({ key: 'count' }))?.text).toBe('Notes 0')
+  expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 0')
   expect(await pane.find({ key: 'add-title' })).toBeUndefined()
   expect(await pane.find({ type: 'Text', text: 'No open items' })).toBeDefined()
 
@@ -43,7 +42,7 @@ test('/resume brings back that session note and hands the whole note over', asyn
   world.files.set(pathOf('old'), JSON.stringify(withOpen))
   const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
   const [told] = await switchTo($, 'resume', 'old')
-  expect((await band.find({ key: 'count' }))?.text).toBe('Notes 1')
+  expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 1')
   expect(told).toContain('[session-note] The session note now:')
   expect(told).toContain('- [a1b2c3d4] "Check the redirect"')
 })
@@ -59,7 +58,7 @@ test('--fork-session starts the new session id with an empty note and says so', 
   await start($, on, withOpen)
   const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
   expect(await switchTo($, 'fork', 'forked')).toEqual(["[session-note] This session's note is empty."])
-  expect((await band.find({ key: 'count' }))?.text).toBe('Notes 0')
+  expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 0')
 })
 
 test('an unreadable note is copied aside, the session starts empty and the next save writes a fresh note', async ($, on) => {
