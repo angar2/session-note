@@ -1,8 +1,8 @@
-// 입력창 위 띠 — 왼쪽은 할 일(열린 항목 수, 세션의 제안), 오른쪽은 과정(지금 단계), 맨 오른쪽은 늘 있는 열기·닫기·보기 (spec UI.md 1절)
+// 입력창 위 띠 — 왼쪽은 할 일(열린 항목 수, 세션의 제안), 오른쪽은 과정(지금 단계), 맨 오른쪽은 늘 있는 열기·닫기 (spec UI.md 1절)
 import type { On } from 'claude-code'
 
 import { activeProcess, currentOf } from './process'
-import { LABEL, MARK, SQUARE, buttonLook, cellsOf, cut } from './text'
+import { DIVIDER, LABEL, MARK, SQUARE, buttonLook, cellsOf, cut } from './text'
 import type { Text } from './text'
 import {
   acceptProposal,
@@ -29,10 +29,10 @@ export function drawBand(on: On, text: Text, background?: string) {
     const isEmpty = count === 0 && proposals.length === 0
     const isOpen = await isPaneOpen($)
 
-    // 제안이 하나면 그 제목과 받기·무시 버튼, 여럿이면 개수 요약과 보기(할 일 탭으로 연다)
+    // 제안이 하나면 그 제목과 받기·무시 버튼, 여럿이면 개수 요약(열기가 할 일 탭으로 연다)
     const only = proposals.length === 1 ? proposals[0] : undefined
     const many = proposals.length > 1
-    const toggleLabel = isOpen ? text.close : many ? text.view : text.open
+    const toggleLabel = isOpen ? text.close : text.open
     const titleOf = (itemId: string) => current.items.find(item => item.id === itemId)?.title ?? ''
     const fresh = proposals.filter(p => p.kind === 'new').length
     const finished = proposals.length - fresh
@@ -49,14 +49,14 @@ export function drawBand(on: On, text: Text, background?: string) {
     // 진행 중 과정의 지금 단계 — 없으면 과정 구역을 비운다
     const proc = activeProcess(current)
     const now = proc === undefined ? null : currentOf(proc)
-    const stepHead = now === null ? '' : `${LABEL.process} ${text.process} ${SQUARE.active.label} ${now.at.number}`
+    const stepHead = now === null ? '' : `${LABEL.process}${DIVIDER}${SQUARE.active.label} ${now.at.number}`
     const others = now === null || now.others === 0 ? '' : text.others(now.others)
 
-    // 좁은 띠: 글자 폭을 세어 과정 단계 제목부터 줄이고, 다음으로 제안 제목을 줄인다. 이름표·개수·번호·버튼은 자르지 않는다
+    // 좁은 띠: 글자 폭을 세어 과정 단계 제목부터 줄이고, 다음으로 제안 제목을 줄인다. 기호·개수·번호·버튼은 자르지 않는다
     const fixed =
-      cellsOf(`${LABEL.todo} ${text.todo} ${count}`) +
-      (only !== undefined ? 5 + cellsOf(MARK[only.kind].label) + 2 + 1 + cellsOf(accept) + 1 + cellsOf(dismiss) : 0) +
-      (many ? 5 + cellsOf(summary) : 0) +
+      cellsOf(`${LABEL.todo} ${count}`) +
+      (only !== undefined ? cellsOf(DIVIDER) + cellsOf(MARK[only.kind].label) + 2 + 1 + cellsOf(accept) + 1 + cellsOf(dismiss) : 0) +
+      (many ? cellsOf(DIVIDER) + cellsOf(summary) : 0) +
       (now === null ? 0 : 2 + cellsOf(stepHead) + (others === '' ? 0 : 1 + cellsOf(others))) +
       2 +
       cellsOf(toggleLabel)
@@ -78,7 +78,7 @@ export function drawBand(on: On, text: Text, background?: string) {
     const pending =
       only !== undefined ? (
         <Box key="pending" flexDirection="row" flexShrink={1} minWidth={0}>
-          <T dimColor>{'  │  '}</T>
+          <T dimColor>{DIVIDER}</T>
           <T wrap="truncate-end">
             {mark(only.kind)}
             {'  '}
@@ -100,7 +100,7 @@ export function drawBand(on: On, text: Text, background?: string) {
         </Box>
       ) : many ? (
         <Box key="pending" flexDirection="row" flexShrink={1} minWidth={0}>
-          <T dimColor>{'  │  '}</T>
+          <T dimColor>{DIVIDER}</T>
           <T wrap="truncate-end">
             {fresh > 0 ? mark('new') : ''}
             {fresh > 0 ? <T dimColor> {text.pendingNew(fresh)}</T> : ''}
@@ -117,8 +117,9 @@ export function drawBand(on: On, text: Text, background?: string) {
         <Box key="process" flexShrink={0}>
           <T wrap="truncate-end">
             <T dimColor>
-              {LABEL.process} {text.process}
-            </T>{' '}
+              {LABEL.process}
+              {DIVIDER}
+            </T>
             <T color={SQUARE.active.color}>{SQUARE.active.label}</T> {now.at.number}
             {stepTitle}
             {others === '' ? '' : <T dimColor> {others}</T>}
@@ -136,14 +137,10 @@ export function drawBand(on: On, text: Text, background?: string) {
         <Box flexDirection="row" flexShrink={1} minWidth={0}>
           <Box key="count" flexShrink={0}>
             {isEmpty ? (
-              <T dimColor>
-                {LABEL.todo} {text.todo} 0
-              </T>
+              <T dimColor>{LABEL.todo} 0</T>
             ) : (
               <T>
-                <T dimColor>
-                  {LABEL.todo} {text.todo}
-                </T>{' '}
+                <T dimColor>{LABEL.todo}</T>{' '}
                 <T bold>{String(count)}</T>
               </T>
             )}

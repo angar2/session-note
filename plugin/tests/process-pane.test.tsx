@@ -146,7 +146,7 @@ test('removing step 3 through the process tool renumbers the steps in the pane',
   expect(await rowText(pane, 'r4')).toBe('◻ 3Release notes')
 })
 
-test('the band Open keeps the last chosen tab, and View opens the to-do tab where proposals are', async ($, on) => {
+test('the band Open keeps the last chosen tab, and opens the to-do tab while there are several proposals', async ($, on) => {
   const world = await start($, on, {
     ...withProcesses(),
     proposals: [
@@ -157,7 +157,7 @@ test('the band Open keeps the last chosen tab, and View opens the to-do tab wher
   const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
   const pane = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...PANE })
   await pane.press({ key: 'tab-process' })
-  expect((await band.find({ key: 'toggle' }))?.text).toContain('View')
+  expect((await band.find({ key: 'toggle' }))?.text).toContain('Open')
   await band.press({ key: 'toggle' })
   expect(world.panes.has('session-note')).toBe(true)
   expect(await pane.find({ key: 'ptitle-p1' })).toBeDefined()
