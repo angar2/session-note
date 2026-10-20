@@ -32,7 +32,6 @@ const TEXT = {
     dismiss: 'Dismiss',
     complete: 'Complete',
     notYet: 'Not yet',
-    view: 'View',
     pendingNew: (n: number) => `${n} new`,
     pendingDone: (n: number) => `${n} done`,
     command: 'Open the notes pane',
@@ -68,7 +67,6 @@ const TEXT = {
     dismiss: '무시',
     complete: '완료',
     notYet: '아직',
-    view: '보기',
     pendingNew: (n: number) => `새 항목 ${n}`,
     pendingDone: (n: number) => `끝난 항목 ${n}`,
     command: '노트 패널을 열어요',
@@ -87,6 +85,9 @@ export const MARK = {
 
 // 띠·탭의 이름표 기호 — 할 일 ☑, 과정 ≡ (이름표와 같은 회색)
 export const LABEL = { todo: '☑', process: '≡' } as const
+
+// 띠의 흐린 구분선 — 할 일 개수와 제안 사이, 과정 기호와 지금 단계 사이
+export const DIVIDER = ' │ '
 
 // 단계·과정의 상태 네모 — 대기 ◻, 진행 중·완료·중단 ◼에 파랑·초록·빨강 (테마 키)
 export const SQUARE = {
