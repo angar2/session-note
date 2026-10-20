@@ -30,7 +30,7 @@ test('an item the user asks for is added at once, with no mark and no notice', a
   expect(saved(world).items.map(one => [one.title, one.body, one.source])).toEqual([
     ['Check token expiry', 'A 500 right after expiry', 'instruction'],
   ])
-  expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 1')
+  expect((await band.find({ key: 'count' }))?.text).toBe('☑ 1')
   const pane = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...PANE })
   expect((await pane.find({ key: await keyOf(pane, 'title-', 'Check token expiry') }))?.text).not.toContain('☺')
   expect(world.told()).toEqual([])
@@ -54,7 +54,7 @@ for (const surface of SURFACES) {
     expect(saved(world).items.map(one => [one.title, one.body, one.source, one.createdAt])).toEqual([
       ['Check the redirect', 'Query strings', 'proposal', saved(world).items[0]?.createdAt],
     ])
-    expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 1')
+    expect((await band.find({ key: 'count' }))?.text).toBe('☑ 1')
     expect((await band.find({ key: 'toggle' }))?.text).toContain('Open')
     expect(world.told()).toEqual([
       `[session-note] The user accepted your proposal; it is now item [${saved(world).items[0]?.id.slice(0, 8)}] "Check the redirect".`,
@@ -80,12 +80,12 @@ for (const surface of SURFACES) {
     await call($, { action: 'propose_done', id: 'a1b2c3d4' })
     await band.press({ key: await keyOf(band, 'accept-', 'Complete') })
     expect(saved(world).items[0]).toMatchObject({ status: 'done' })
-    expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 0')
+    expect((await band.find({ key: 'count' }))?.text).toBe('☑ 0')
     expect(world.told()[1]).toBe('[session-note] The user confirmed [a1b2c3d4] "Check the redirect" is done.')
   })
 }
 
-test('several proposals show as counts with View on the band and one by one in the pane', async ($, on) => {
+test('several proposals show as counts with Open on the band and one by one in the pane', async ($, on) => {
   const world = await start($, on, {
     version: 1,
     items: [item('a1b2c3d4-0000', 'Check the redirect', 'open', '2026-10-16T14:05:00+09:00')],
@@ -96,7 +96,7 @@ test('several proposals show as counts with View on the band and one by one in t
   await call($, { action: 'propose_done', id: 'a1b2c3d4' })
   const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
   expect((await band.find({ key: 'pending' }))?.text).toContain('[+] 2 new · [✓] 1 done')
-  expect((await band.find({ key: 'toggle' }))?.text).toContain('View')
+  expect((await band.find({ key: 'toggle' }))?.text).toContain('Open')
   await band.press({ key: 'toggle' })
   expect(world.panes.has('session-note')).toBe(true)
 
@@ -181,7 +181,7 @@ test('a done proposal whose item was deleted or completed is not shown', async (
   })
   const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
   expect(await band.find({ key: 'pending' })).toBeUndefined()
-  expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 0')
+  expect((await band.find({ key: 'count' }))?.text).toBe('☑ 0')
 })
 
 test('what the user changes in the pane is told to the session, one line each', async ($, on) => {
@@ -273,7 +273,7 @@ test('edit, delete and reopen work by ref on the band and pane, with no notice',
   expect(await keyOf(pane, 'title-', 'Old work')).toMatch(/^title-/)
   expect((await pane.findAll({ type: 'Button' })).some(one => one.text.includes('Drop me'))).toBe(false)
   const band = await $.ui.mount({ plugin: 'session-note', surface: 'terminal', ...BAND })
-  expect((await band.find({ key: 'count' }))?.text).toBe('☑ To do 2')
+  expect((await band.find({ key: 'count' }))?.text).toBe('☑ 2')
   expect(world.told()).toEqual([])
 })
 

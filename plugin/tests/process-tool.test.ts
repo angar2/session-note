@@ -98,6 +98,34 @@ test('sub-steps under the active step take over its status, and several statuses
   expect([first?.status, second?.status]).toEqual(['done', 'active'])
 })
 
+test('set answers what the steps really are when a step with sub-steps does not take the asked status', async ($, on) => {
+  const world = await start($, on)
+  await release($)
+  await call($, { action: 'add', parent: '1', steps: steps('Rebase', 'Merge') })
+  await call($, { action: 'add', parent: '2', steps: steps('Sign', 'Push') })
+  // 2.1 완료·2.2 중단이면 2에 완료를 줘도 바꿀 세부 단계가 없다
+  await call($, { action: 'set', changes: [{ id: '2.1', status: 'done' }, { id: '2.2', status: 'stopped' }] })
+  expect(
+    await resultOf($, {
+      action: 'set',
+      changes: [
+        { id: '2', status: 'done' },
+        { id: '3', status: 'active' },
+      ],
+    }),
+  ).toBe(
+    'Set 3 active. 2 unchanged: still stopped, not done (a step with sub-steps follows them: 2.1 done, 2.2 stopped).',
+  )
+  // 1.1 완료·1.2 진행 중이면 1을 대기로 돌려도 1.2만 대기가 되고 1은 진행 중이다
+  await call($, { action: 'set', changes: [{ id: '1.1', status: 'done' }, { id: '1.2', status: 'active' }] })
+  expect(await resultOf($, { action: 'set', changes: [{ id: '1', status: 'waiting' }] })).toBe(
+    '1 is active, not waiting (a step with sub-steps follows them: 1.1 done, 1.2 waiting).',
+  )
+  expect(saved(world).processes[0]?.steps[0]?.steps.map(step => step.status)).toEqual(['done', 'waiting'])
+  // 세부 단계에 적용돼 요청한 상태가 되면 전처럼 답한다
+  expect(await resultOf($, { action: 'set', changes: [{ id: '1', status: 'done' }] })).toBe('Set 1 done.')
+})
+
 test('a new process for another goal leaves the old one waiting where it stopped, and switch brings it back', async ($, on) => {
   const world = await start($, on)
   await release($)

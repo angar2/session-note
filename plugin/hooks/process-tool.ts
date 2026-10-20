@@ -14,10 +14,12 @@ import {
   findStep,
   heightOf,
   insertSteps,
+  leavesOf,
   moveStep,
   removeSteps,
   setStatus,
   settle,
+  statusOf,
   withProcess,
 } from './process'
 import { describeProcesses, processLines, refOf } from './tell'
@@ -291,10 +293,11 @@ async function move($: EngineInterface, proc: Process, args: Record<string, unkn
   )
 }
 
+// 답은 저장된 과정에서 만든다 — 세부 단계가 있는 단계는 세부 단계를 따르므로 요청한 상태가 되지 않을 수 있다
 async function set($: EngineInterface, proc: Process, args: Record<string, unknown>): Promise<Answer> {
   const changes = Array.isArray(args['changes']) ? args['changes'] : []
   if (changes.length === 0) return { deny: 'Give changes: a list of { id, status }.' }
-  const resolved: { id: string; status: StepStatus; label: string }[] = []
+  const resolved: { id: string; status: StepStatus; before: Step }[] = []
   // 한 호출 안의 순번은 모두 호출 전 기준으로 찾는다
   for (const raw of changes) {
     const input = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
@@ -304,13 +307,33 @@ async function set($: EngineInterface, proc: Process, args: Record<string, unkno
     if (found === undefined) return { deny: `No step ${ref}. Use list to see the steps.` }
     if (!STEP_STATUSES.includes(status as StepStatus))
       return { deny: `Unknown status "${status}". Use waiting, active, done or stopped.` }
-    resolved.push({ id: found.step.id, status: status as StepStatus, label: `${found.number} ${status}` })
+    resolved.push({ id: found.step.id, status: status as StepStatus, before: found.step })
   }
-  const waiting = proc.status === 'waiting' ? ` "${proc.title}" is waiting; use switch to make it active.` : ''
-  return change(
-    $,
-    proc,
-    one => resolved.reduce((acc, next) => setStatus(acc, next.id, next.status), one),
-    `Set ${resolved.map(one => one.label).join(', ')}.${waiting}`,
+  const saved = await saveChange($, n =>
+    withProcess(n, proc.id, one => resolved.reduce((acc, next) => setStatus(acc, next.id, next.status), one)),
   )
+  if (saved === null) return unsaved
+  const now = saved.processes.find(one => one.id === proc.id) ?? proc
+  const leafStatuses = (step: Step) => leavesOf(step).map(leaf => leaf.status).join()
+  const done: string[] = []
+  const missed: string[] = []
+  for (const { id, status, before } of resolved) {
+    const after = findStep(now, id)
+    if (after === undefined) continue
+    const actual = statusOf(after.step)
+    if (actual === status) {
+      done.push(`${after.number} ${actual}`)
+      continue
+    }
+    const below = after.step.steps.map((child, n) => `${after.number}.${n + 1} ${statusOf(child)}`).join(', ')
+    const why = below === '' ? '' : ` (a step with sub-steps follows them: ${below})`
+    missed.push(
+      leafStatuses(before) === leafStatuses(after.step)
+        ? `${after.number} unchanged: still ${actual}, not ${status}${why}.`
+        : `${after.number} is ${actual}, not ${status}${why}.`,
+    )
+  }
+  const waiting = proc.status === 'waiting' ? `"${proc.title}" is waiting; use switch to make it active.` : ''
+  const head = done.length === 0 ? [] : [`Set ${done.join(', ')}.`]
+  return { result: [...head, ...missed, waiting].filter(line => line !== '').join(' ') }
 }

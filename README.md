@@ -51,20 +51,20 @@ Type these two lines inside Claude Code:
 The line just above the prompt (the **band**) has two areas, left and right.
 
 ```
- ☑ To do 2                                       ≡ Process ◼ 2.1 Read the logs  Open
+ ☑ 2                                                  ≡ │ ◼ 2.1 Read the logs  Open
 ```
 
-- `☑ To do 2` on the left is the number of open to-dos. The agent's proposals also show up next to it.
-- `≡ Process ◼ 2.1 Read the logs` on the right is the step the session is working on. It is empty when no step is in progress.
-- `Open` at the right end opens the pane. It stays in place even when a proposal comes in.
-- In a narrow window, the step title shortens with `…` first. Labels, numbers and buttons always stay.
+- `☑ 2` on the left is the number of open to-dos. When the agent makes a proposal, it shows up next to it after a `│`.
+- `≡ │ ◼ 2.1 Read the logs` on the right is the process step the session is working on. It is empty when no step is in progress.
+- `Open` at the right end opens the pane. It stays in place even when a proposal comes in, and reads `Close` while the pane is open.
+- In a narrow window, the step title shortens with `…` first. Symbols, numbers and buttons always stay.
 
 ### Accepting proposals
 
 Say "let's check token expiry handling later" during the conversation, and the agent puts a proposal on the left of the band.
 
 ```
- ☑ To do 2  │  [+]  Check token expiry [Add] [Dismiss]   ≡ Process ◼ 2.1 Read the logs  Open
+ ☑ 2 │ [+]  Check token expiry [Add] [Dismiss]        ≡ │ ◼ 2.1 Read the logs  Open
 ```
 
 - The blue `[+]` means "add this as a new item?"
@@ -76,20 +76,20 @@ Say "let's check token expiry handling later" during the conversation, and the a
 When that work is finished, the agent checks it against the note and proposes completing it.
 
 ```
- ☑ To do 2  │  [✓]  Check token expiry [Complete] [Not yet]   ≡ Process ◼ 2.1 Read the logs  Open
+ ☑ 2 │ [✓]  Check token expiry [Complete] [Not yet]   ≡ │ ◼ 2.1 Read the logs  Open
 ```
 
 - The green `[✓]` means "this item looks done."
 - Press `[Complete]` if it is, or `[Not yet]` if something is left.
-- When several proposals pile up, the band shows only the counts, like `[+] 2 new · [✓] 1 done`, and `Open` at the right end becomes `View`. Press `View` to answer them one by one in the pane.
+- When several proposals pile up, the band shows only the counts, like `[+] 2 new · [✓] 1 done`. Press `Open` at the right end to answer them one by one in the To do tab of the pane.
 
 ### Following a process
 
 Hand the session multi-step work, like "Fix the login bug" or "Ship the 1.1.0 release", and it lays out a process and tells you in one line. It does not make one for a quick question.
 
 ```
- ☑ To do 1                                            ≡ Process ◼ 1 Reproduce  Open
- ☑ To do 1                                       ≡ Process ◼ 2.1 Read the logs  Open
+ ☑ 1                                                        ≡ │ ◼ 1 Reproduce  Open
+ ☑ 1                                                  ≡ │ ◼ 2.1 Read the logs  Open
 ```
 
 - The right of the band shows the current step with its number. It changes as soon as the session moves on to the next step.
@@ -208,7 +208,7 @@ claude plugin uninstall session-note@angar2 --keep-data
 
 ## Requirements
 
-- Claude Code with mods (plugin function hooks). Built and tested on Claude Code 2.1.301.
+- Claude Code with mods (plugin function hooks). Tested on Claude Code 2.1.304.
 - Mods are still in early access, so behavior may change with new Claude Code versions.
 
 ## License
